@@ -1,0 +1,19 @@
+[package]
+name = "SimpleDB"
+version = "0.1.0"
+authors = ["yuziroppe <yahata.dev@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.40"
+itertools = "0.10.1"
+
+[[bin]]
+name = "blockid"
+path = "src/blockid.rs"
+
+[[bin]]
+name = "page"
+path = "src/page.rs"
