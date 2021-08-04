@@ -58,6 +58,17 @@ impl Page {
         }
     }
 
+    fn getBytes(&self, offset: usize) -> anyhow::Result<(&[u8])> {
+        let len = self.getInt(offset)? as usize;
+        let new_offset = offset + mem::size_of::<i32>();
+
+        if new_offset + len - 1 < self.bb.len() {
+            Ok(&self.bb[new_offset..new_offset + len])
+        } else {
+            Err(PageError::BufferSizeExceeded)?
+        }
+    }
+
     fn setBytes(&mut self, offset: usize, b: &[u8]) -> anyhow::Result<(usize)> {
         if offset + mem::size_of::<i32>() + b.len() - 1 < self.bb.len() {
             let new_offset = self.setInt(offset, b.len() as i32)?;
@@ -70,7 +81,12 @@ impl Page {
         }
     }
 
-    pub fn getString(&self, offset: usize) -> String {}
+    pub fn getString(&self, offset: usize) -> anyhow::Result<String> {
+        let bytes = self.getBytes(offset)?;
+        let s = String::from_utf8(bytes.to_vec())?;
+
+        Ok(s)
+    }
 
     pub fn setString(&mut self, offset: usize, s: String) -> anyhow::Result<(usize)> {
         self.setBytes(offset, s.as_bytes())
