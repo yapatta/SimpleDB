@@ -40,11 +40,11 @@ impl Page {
             let bytes = &self.bb[offset..offset + i32_size];
             Ok(i32::from_be_bytes((*bytes).try_into()?))
         } else {
-            return Err(PageError::BufferSizeExceeded)?;
+            Err(PageError::BufferSizeExceeded)?
         }
     }
 
-    pub fn setInt(&mut self, offset: usize, n: i32) -> anyhow::Result<()> {
+    pub fn setInt(&mut self, offset: usize, n: i32) -> anyhow::Result<(usize)> {
         let bytes = n.to_be_bytes();
 
         if offset + bytes.len() - 1 < self.bb.len() {
@@ -52,13 +52,29 @@ impl Page {
                 *b = *added;
             }
 
-            Ok(())
+            Ok(offset + mem::size_of::<i32>())
         } else {
-            return Err(PageError::BufferSizeExceeded)?;
+            Err(PageError::BufferSizeExceeded)?
         }
     }
 
-    pub fn getByte(&self, offset: usize) {}
+    fn setBytes(&mut self, offset: usize, b: &[u8]) -> anyhow::Result<(usize)> {
+        if offset + mem::size_of::<i32>() + b.len() - 1 < self.bb.len() {
+            let new_offset = self.setInt(offset, b.len() as i32)?;
+            for (p, added) in izip!(&mut self.bb[new_offset..new_offset + b.len()], b) {
+                *p = *added
+            }
+            Ok(new_offset + b.len())
+        } else {
+            Err(PageError::BufferSizeExceeded)?
+        }
+    }
+
+    pub fn getString(&self, offset: usize) -> String {}
+
+    pub fn setString(&mut self, offset: usize, s: String) -> anyhow::Result<(usize)> {
+        self.setBytes(offset, s.as_bytes())
+    }
 }
 
 fn main() {}
