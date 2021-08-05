@@ -99,7 +99,7 @@ impl Page {
     }
 
     // need by FileMgr
-    fn contents(&self) -> &Vec<u8> {
-        &self.bb
+    pub fn contents(&mut self) -> &mut Vec<u8> {
+        &mut self.bb
     }
 }
