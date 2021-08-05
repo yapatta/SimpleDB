@@ -1,6 +1,7 @@
 use std::fmt;
+use std::hash::Hash;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Hash)]
 pub struct BlockId {
     filename: String,
     blknum: i32,
