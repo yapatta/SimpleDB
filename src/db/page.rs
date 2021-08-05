@@ -93,4 +93,13 @@ impl Page {
     pub fn set_string(&mut self, offset: usize, s: String) -> anyhow::Result<usize> {
         self.set_bytes(offset, s.as_bytes())
     }
+
+    pub fn max_length(strlen: usize) -> usize {
+        mem::size_of::<i32>() + (strlen * mem::size_of::<u8>())
+    }
+
+    // need by FileMgr
+    fn contents(&self) -> &Vec<u8> {
+        &self.bb
+    }
 }
