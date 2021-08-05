@@ -1,6 +1,7 @@
 use super::blockid::BlockId;
 use super::page::Page;
 use anyhow::Result;
+use fs2::FileExt;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -9,7 +10,6 @@ use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::SeekFrom;
 use std::path::Path;
-use std::sync::RwLock;
 #[derive(Debug)]
 enum FileMgrError {
     ParseFailed,
@@ -62,25 +62,32 @@ impl FileMgr<'_> {
         })
     }
 
+    // bufの内容をpに書き込み
+    // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn read(&self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        let f = fs::File::open(blk.filename())?;
-        let mut buf = BufReader::new(f);
-        // let fl = RwLock::new(buf);
+        let mut f = fs::File::open(blk.filename())?;
+        f.lock_exclusive()?;
 
         let offset = blk.number() as usize * self.blocksize;
-        buf.seek(SeekFrom::Start(offset as u64))?;
-        buf.read(p.contents())?;
+        f.seek(SeekFrom::Start(offset as u64))?;
+        f.read(p.contents())?;
+
+        f.unlock()?;
 
         Ok(())
     }
 
+    // pの内容をbufに書き込み
+    // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn write(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        let f = fs::File::open(blk.filename())?;
-        let mut buf = BufWriter::new(f);
+        let mut f = fs::File::open(blk.filename())?;
+        f.lock_exclusive()?;
 
         let offset = blk.number() as usize * self.blocksize;
-        buf.seek(SeekFrom::Start(offset as u64))?;
-        buf.write(p.contents())?;
+        f.seek(SeekFrom::Start(offset as u64))?;
+        f.write(p.contents())?;
+
+        f.unlock()?;
 
         Ok(())
     }

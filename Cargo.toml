@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.40"
+fs2 = "0.4.3"
 itertools = "0.10.1"
