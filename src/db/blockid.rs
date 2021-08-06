@@ -4,11 +4,11 @@ use std::hash::Hash;
 #[derive(PartialEq, Eq, Hash)]
 pub struct BlockId {
     filename: String,
-    blknum: i32,
+    blknum: usize,
 }
 
 impl BlockId {
-    pub fn new(filename: String, blknum: i32) -> BlockId {
+    pub fn new(filename: String, blknum: usize) -> BlockId {
         BlockId {
             filename: filename,
             blknum: blknum,
@@ -19,7 +19,7 @@ impl BlockId {
         self.filename.clone()
     }
 
-    pub fn number(&self) -> i32 {
+    pub fn number(&self) -> usize {
         self.blknum
     }
 }

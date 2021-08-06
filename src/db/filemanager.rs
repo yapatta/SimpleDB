@@ -5,6 +5,7 @@ use fs2::FileExt;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
+use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::io::BufWriter;
@@ -28,7 +29,7 @@ pub struct FileMgr<'a> {
     db_directory: &'a Path,
     blocksize: usize,
     is_new: bool,
-    open_files: HashMap<String, String>,
+    open_files: HashMap<String, &'a mut File>,
 }
 
 impl FileMgr<'_> {
@@ -65,7 +66,7 @@ impl FileMgr<'_> {
     // bufの内容をpに書き込み
     // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn read(&self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        let mut f = fs::File::open(blk.filename())?;
+        let mut f = File::open(blk.filename())?;
         f.lock_exclusive()?;
 
         let offset = blk.number() as usize * self.blocksize;
@@ -80,7 +81,7 @@ impl FileMgr<'_> {
     // pの内容をbufに書き込み
     // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn write(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        let mut f = fs::File::open(blk.filename())?;
+        let mut f = File::open(blk.filename())?;
         f.lock_exclusive()?;
 
         let offset = blk.number() as usize * self.blocksize;
@@ -92,5 +93,32 @@ impl FileMgr<'_> {
         Ok(())
     }
 
-    // TODO: append以下
+    pub fn append(&mut self, filename: String) -> anyhow::Result<BlockId> {
+        // FIX: needing O(|S|), find out more efficient solution
+        let newblknum = filename.chars().count();
+        let blk = BlockId::new(filename, newblknum);
+
+        let b: Vec<u8> = vec![0; self.blocksize];
+
+        let f = self.get_file(blk.filename())?;
+        f.seek(SeekFrom::Start((blk.number() * self.blocksize) as u64))?;
+        f.write(&b)?;
+
+        Ok(blk)
+    }
+
+    pub fn get_file(&mut self, filename: String) -> anyhow::Result<&mut File> {
+        if let Some(c) = self.open_files.ref().get_mut(&filename) {
+            return Ok(*c);
+        }
+
+        let path = Path::new(self.db_directory).join(&filename);
+        let mut nf = File::create(path)?;
+
+        // どうにかして
+        self.open_files.insert(filename, &mut nf);
+
+        let mut rf = File::open(path)?;
+        Ok(&mut rf)
+    }
 }
