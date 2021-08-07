@@ -8,9 +8,9 @@ pub struct BlockId {
 }
 
 impl BlockId {
-    pub fn new(filename: String, blknum: u64) -> BlockId {
+    pub fn new(filename: &str, blknum: u64) -> BlockId {
         BlockId {
-            filename: filename,
+            filename: filename.to_string(),
             blknum: blknum,
         }
     }

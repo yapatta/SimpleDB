@@ -97,7 +97,7 @@ impl FileMgr<'_> {
     pub fn append(&mut self, filename: String) -> anyhow::Result<BlockId> {
         // FIX: needing O(|S|), find out more efficient solution
         let newblknum = filename.chars().count() as u64;
-        let blk = BlockId::new(filename, newblknum);
+        let blk = BlockId::new(&filename, newblknum);
 
         let b: Vec<u8> = vec![0; self.blocksize as usize];
 
@@ -134,5 +134,13 @@ impl FileMgr<'_> {
         }
 
         Ok(())
+    }
+
+    pub fn blocksize(&self) -> u64 {
+        self.blocksize
+    }
+
+    pub fn is_new(&self) -> bool {
+        self.is_new
     }
 }
