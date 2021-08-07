@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::path::Path;
@@ -66,32 +67,43 @@ impl FileMgr<'_> {
 
     // bufの内容をpに書き込み
     // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
-    pub fn read(&self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        let mut f = File::open(blk.filename())?;
-        f.lock_exclusive()?;
+    pub fn read(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
+        self.configure_file_table(blk.filename())?;
 
-        let offset = blk.number() * self.blocksize;
-        f.seek(SeekFrom::Start(offset))?;
-        f.read(p.contents())?;
+        if let Some(f) = self.open_files.get_mut(&blk.filename()) {
+            f.lock_exclusive()?;
 
-        f.unlock()?;
+            let offset = blk.number() * self.blocksize;
+            f.seek(SeekFrom::Start(offset))?;
 
-        Ok(())
+            f.read_exact(p.contents())?;
+
+            f.unlock()?;
+
+            return Ok(());
+        }
+
+        Err(From::from(FileMgrError::InternalError))
     }
 
     // pの内容をbufに書き込み
     // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn write(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        let mut f = File::open(blk.filename())?;
-        f.lock_exclusive()?;
+        self.configure_file_table(blk.filename())?;
 
-        let offset = blk.number() * self.blocksize;
-        f.seek(SeekFrom::Start(offset))?;
-        f.write(p.contents())?;
+        if let Some(f) = self.open_files.get_mut(&blk.filename()) {
+            f.lock_exclusive()?;
 
-        f.unlock()?;
+            let offset = blk.number() * self.blocksize;
+            f.seek(SeekFrom::Start(offset))?;
+            f.write(p.contents())?;
 
-        Ok(())
+            f.unlock()?;
+
+            return Ok(());
+        }
+
+        Err(From::from(FileMgrError::InternalError))
     }
 
     pub fn append(&mut self, filename: String) -> anyhow::Result<BlockId> {
@@ -125,7 +137,12 @@ impl FileMgr<'_> {
         let path = Path::new(self.db_directory).join(&filename);
 
         if !self.open_files.contains_key(&filename) {
-            let f = File::create(&path)?;
+            // both read and write mode
+            let f = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(&path)?;
 
             // never happen
             if let Some(_) = self.open_files.insert(filename, f) {

@@ -3,6 +3,7 @@ use itertools::izip;
 use std::convert::TryInto;
 use std::fmt;
 use std::mem;
+use std::str;
 
 #[derive(Debug)]
 enum PageError {
@@ -52,7 +53,7 @@ impl Page {
                 *b = *added;
             }
 
-            Ok(offset + mem::size_of::<i32>())
+            Ok(offset + bytes.len())
         } else {
             Err(PageError::BufferSizeExceeded)?
         }
@@ -97,8 +98,13 @@ impl Page {
         mem::size_of::<i32>() + (strlen * mem::size_of::<u8>())
     }
 
-    // need by FileMgr
+    // needed by FileMgr
     pub fn contents(&mut self) -> &mut Vec<u8> {
         &mut self.bb
+    }
+
+    // for tests
+    pub fn contents_str(&mut self) -> &str {
+        str::from_utf8(self.contents()).unwrap()
     }
 }
