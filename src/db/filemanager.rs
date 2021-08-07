@@ -104,7 +104,7 @@ impl FileMgr<'_> {
         self.configure_file_table(blk.filename())?;
 
         if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-            f.seek(SeekFrom::Start((blk.number() * self.blocksize) as u64))?;
+            f.seek(SeekFrom::Start(blk.number() * self.blocksize))?;
             f.write(&b)?;
 
             return Ok(blk);
@@ -118,7 +118,7 @@ impl FileMgr<'_> {
         self.configure_file_table(filename)?;
         let md = fs::metadata(&path)?;
 
-        Ok((md.len() / self.blocksize) as u64)
+        Ok(md.len() / self.blocksize)
     }
 
     pub fn configure_file_table(&mut self, filename: String) -> anyhow::Result<()> {
