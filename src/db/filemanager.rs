@@ -48,7 +48,7 @@ impl FileMgr<'_> {
             let epath = entry.path();
             let filename = match entry.file_name().into_string() {
                 Ok(s) => s,
-                Err(e) => return Err(From::from(FileMgrError::ParseFailed)),
+                Err(_) => return Err(From::from(FileMgrError::ParseFailed)),
             };
 
             if filename.starts_with("temp") {
