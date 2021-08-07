@@ -125,10 +125,10 @@ impl FileMgr<'_> {
         let path = Path::new(self.db_directory).join(&filename);
 
         if !self.open_files.contains_key(&filename) {
-            let new_file = File::create(&path)?;
+            let f = File::create(&path)?;
 
             // never happen
-            if let Some(_) = self.open_files.insert(filename, new_file) {
+            if let Some(_) = self.open_files.insert(filename, f) {
                 return Err(From::from(FileMgrError::InternalError));
             }
         }
