@@ -11,9 +11,11 @@ use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::SeekFrom;
 use std::path::Path;
+
 #[derive(Debug)]
 enum FileMgrError {
     ParseFailed,
+    InternalError,
 }
 
 impl std::error::Error for FileMgrError {}
@@ -21,6 +23,7 @@ impl fmt::Display for FileMgrError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             FileMgrError::ParseFailed => write!(f, "parse failed"),
+            FileMgrError::InternalError => write!(f, "internal errror"),
         }
     }
 }
@@ -29,7 +32,7 @@ pub struct FileMgr<'a> {
     db_directory: &'a Path,
     blocksize: usize,
     is_new: bool,
-    open_files: HashMap<String, &'a mut File>,
+    open_files: HashMap<String, File>,
 }
 
 impl FileMgr<'_> {
@@ -100,25 +103,26 @@ impl FileMgr<'_> {
 
         let b: Vec<u8> = vec![0; self.blocksize];
 
-        let f = self.get_file(blk.filename())?;
-        f.seek(SeekFrom::Start((blk.number() * self.blocksize) as u64))?;
-        f.write(&b)?;
+        if !self.open_files.contains_key(&blk.filename()) {
+            let path = Path::new(self.db_directory).join(&blk.filename());
+            let nf = File::create(&path)?;
 
-        Ok(blk)
-    }
-
-    pub fn get_file(&mut self, filename: String) -> anyhow::Result<&mut File> {
-        if let Some(c) = self.open_files.ref().get_mut(&filename) {
-            return Ok(*c);
+            // never happen
+            if let Some(_) = self.open_files.insert(blk.filename(), nf) {
+                return Err(From::from(FileMgrError::InternalError));
+            }
         }
 
-        let path = Path::new(self.db_directory).join(&filename);
-        let mut nf = File::create(path)?;
+        if let Some(f) = self.open_files.get_mut(&blk.filename()) {
+            f.seek(SeekFrom::Start((blk.number() * self.blocksize) as u64))?;
+            f.write(&b)?;
 
-        // どうにかして
-        self.open_files.insert(filename, &mut nf);
+            return Ok(blk);
+        }
 
-        let mut rf = File::open(path)?;
-        Ok(&mut rf)
+        Err(From::from(FileMgrError::InternalError))
     }
+
+    // FIX: append wants to use get_file
+    //pub fn get_file(&mut self, filename: String) -> anyhow::Result<&File> {}
 }
