@@ -47,8 +47,6 @@ impl Page {
     pub fn set_int(&mut self, offset: usize, n: i32) -> anyhow::Result<usize> {
         let bytes = n.to_be_bytes();
 
-        println!("bytes: {}, bb: {}", bytes.len(), self.bb.len());
-
         if offset + bytes.len() - 1 < self.bb.len() {
             for (b, added) in izip!(&mut self.bb[offset..offset + bytes.len()], &bytes) {
                 *b = *added;
@@ -77,6 +75,7 @@ impl Page {
             for (p, added) in izip!(&mut self.bb[new_offset..new_offset + b.len()], b) {
                 *p = *added
             }
+
             Ok(new_offset + b.len())
         } else {
             Err(PageError::BufferSizeExceeded)?
