@@ -1,6 +1,6 @@
-use simple_db::db::blockid::BlockId;
-use simple_db::db::filemanager::FileMgr;
-use simple_db::db::page::Page;
+use simple_db::blockid::BlockId;
+use simple_db::filemanager::FileMgr;
+use simple_db::page::Page;
 
 #[test]
 fn test_new_filemgr() {

@@ -1,4 +1,4 @@
-use simple_db::db::page::Page;
+use simple_db::page::Page;
 
 #[test]
 fn test_int() {

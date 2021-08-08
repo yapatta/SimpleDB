@@ -99,12 +99,12 @@ impl Page {
     }
 
     // needed by FileMgr
-    pub fn contents(&mut self) -> &mut Vec<u8> {
+    pub(crate) fn contents(&mut self) -> &mut Vec<u8> {
         &mut self.bb
     }
 
     // for tests
-    pub fn contents_str(&mut self) -> &str {
+    pub(crate) fn contents_str(&mut self) -> &str {
         str::from_utf8(self.contents()).unwrap()
     }
 }

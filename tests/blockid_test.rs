@@ -1,4 +1,4 @@
-use simple_db::db::blockid::BlockId;
+use simple_db::blockid::BlockId;
 
 #[test]
 fn test_display() {
