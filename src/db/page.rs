@@ -70,7 +70,7 @@ impl Page {
         }
     }
 
-    fn set_bytes(&mut self, offset: usize, b: &[u8]) -> anyhow::Result<usize> {
+    pub(crate) fn set_bytes(&mut self, offset: usize, b: &[u8]) -> anyhow::Result<usize> {
         if offset + mem::size_of::<i32>() + b.len() - 1 < self.bb.len() {
             let new_offset = self.set_int(offset, b.len() as i32)?;
             for (p, added) in izip!(&mut self.bb[new_offset..new_offset + b.len()], b) {
