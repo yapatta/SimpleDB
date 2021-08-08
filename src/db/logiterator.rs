@@ -7,39 +7,17 @@ use std::mem;
 
 pub struct LogIterator<'a> {
     fm: &'a mut FileMgr<'a>,
-    blk: BlockId,
+    blk: &'a mut BlockId,
     p: Page,
     currentpos: u64,
     boundary: u64,
 }
 
-impl Iterator for LogIterator<'_> {
-    type Item = Vec<u8>;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.currentpos == self.fm.blocksize() {
-            self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
-
-            if let Err(_) = self.move_to_block(self.blk) {
-                return None;
-            }
-        }
-        if let Ok(rec) = self.p.get_bytes(self.currentpos as usize) {
-            let i32_size = mem::size_of::<i32>() as u64;
-            self.currentpos += i32_size;
-            self.currentpos += i32_size + rec.len() as u64;
-
-            return Some(rec.into_vec());
-        }
-
-        None
-    }
-}
-
 impl LogIterator<'_> {
-    pub fn new<'a>(fm: &'a mut FileMgr<'a>, blk: BlockId) -> Result<LogIterator<'a>> {
+    pub fn new<'a>(fm: &'a mut FileMgr<'a>, blk: &'a mut BlockId) -> Result<LogIterator<'a>> {
         let mut page = Page::new_from_size(fm.blocksize() as usize);
 
-        fm.read(&mut blk, &mut page)?;
+        fm.read(blk, &mut page)?;
         let boundary = page.get_int(0)? as u64;
         let currentpos = boundary;
 
@@ -52,12 +30,30 @@ impl LogIterator<'_> {
         })
     }
 
-    fn move_to_block(&mut self, blk: BlockId) -> Result<()> {
-        self.fm.read(&mut blk, &mut self.p)?;
-        self.boundary = self.p.get_int(0)? as u64;
-        self.currentpos = self.boundary;
+    fn next(&mut self) -> Option<&[u8]> {
+        if self.currentpos == self.fm.blocksize() {
+            *self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
 
-        Ok(())
+            if let Err(_) = self.fm.read(&mut self.blk, &mut self.p) {
+                return None;
+            }
+
+            if let Ok(n) = self.p.get_int(0) {
+                self.boundary = n as u64;
+                self.currentpos = self.boundary;
+            } else {
+                return None;
+            }
+        }
+        if let Ok(rec) = self.p.get_bytes(self.currentpos as usize) {
+            let i32_size = mem::size_of::<i32>() as u64;
+            self.currentpos += i32_size;
+            self.currentpos += i32_size + rec.len() as u64;
+
+            return Some(rec);
+        }
+
+        None
     }
 
     pub fn has_next(&self) -> bool {

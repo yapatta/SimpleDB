@@ -71,12 +71,15 @@ impl LogMgr<'_> {
         Ok(self.lastsaved_lsn)
     }
 
-    pub fn iterator(&mut self) -> Result<LogIterator> {
+    // TODO: use iterator
+    /*
+    pub fn iterator(&mut self) -> Result<()> {
         self.flush()?;
+        self.iterator = LogIterator::new(self.fm, &mut self.currentblk)?;
 
-        let t = LogIterator::new(self.fm, self.currentblk)?;
-        t.next();
+        Ok(())
     }
+    */
 
     pub fn flush_from_lsn(&mut self, lsn: u64) -> Result<()> {
         if lsn > self.lastsaved_lsn {
