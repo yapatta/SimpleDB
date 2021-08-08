@@ -1,5 +1,6 @@
 use super::blockid::BlockId;
 use super::filemanager::FileMgr;
+use super::logiterator::LogIterator;
 use super::page::Page;
 
 use anyhow::Result;
@@ -47,8 +48,9 @@ impl LogMgr<'_> {
         };
     }
 
+    // ブロック内に空き容量があればログを追加, なければ新しいブロックを作成してログ追加
     // TODO: implement thread safe func
-    pub fn append(&mut self, logrec: Vec<u8>) -> Result<u64> {
+    pub fn append(&mut self, logrec: &mut Vec<u8>) -> Result<u64> {
         let mut boundary = self.logpage.get_int(0)?;
         let recsize = logrec.len();
         let int32_size = mem::size_of::<i32>();
@@ -62,11 +64,18 @@ impl LogMgr<'_> {
         }
 
         let recpos = boundary as usize - bytesneeded;
-        self.logpage.set_bytes(recpos, &logrec)?;
+        self.logpage.set_bytes(recpos, logrec)?;
         self.logpage.set_int(0, recpos as i32)?;
         self.latest_lsn += 1;
 
         Ok(self.lastsaved_lsn)
+    }
+
+    pub fn iterator(&mut self) -> Result<LogIterator> {
+        self.flush()?;
+
+        let t = LogIterator::new(self.fm, self.currentblk)?;
+        t.next();
     }
 
     pub fn flush_from_lsn(&mut self, lsn: u64) -> Result<()> {
@@ -75,11 +84,6 @@ impl LogMgr<'_> {
         }
 
         Ok(())
-    }
-
-    pub fn iterator(&mut self) -> Result<Iterator<&[u8]>> {
-        self.flush()?;
-        Ok(LogIterator::new(self.fm, self.currentblk))
     }
 
     fn flush(&mut self) -> Result<()> {

@@ -106,9 +106,10 @@ impl FileMgr<'_> {
         Err(From::from(FileMgrError::InternalError))
     }
 
+    // seek to the end of the file and write an empty array of bytes to it
     pub fn append(&mut self, filename: String) -> anyhow::Result<BlockId> {
         // FIX: needing O(|S|), find out more efficient solution
-        let newblknum = filename.chars().count() as u64;
+        let newblknum = self.length(filename.clone())?;
         let blk = BlockId::new(&filename, newblknum);
 
         let b: Vec<u8> = vec![0; self.blocksize as usize];
@@ -116,8 +117,12 @@ impl FileMgr<'_> {
         self.configure_file_table(blk.filename())?;
 
         if let Some(f) = self.open_files.get_mut(&blk.filename()) {
+            f.lock_exclusive()?;
+
             f.seek(SeekFrom::Start(blk.number() * self.blocksize))?;
             f.write(&b)?;
+
+            f.unlock()?;
 
             return Ok(blk);
         }
@@ -130,7 +135,8 @@ impl FileMgr<'_> {
         self.configure_file_table(filename)?;
         let md = fs::metadata(&path)?;
 
-        Ok(md.len() / self.blocksize)
+        // ceil
+        Ok((md.len() + self.blocksize - 1) / self.blocksize)
     }
 
     pub fn configure_file_table(&mut self, filename: String) -> anyhow::Result<()> {

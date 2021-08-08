@@ -14,8 +14,8 @@ pub struct LogIterator<'a> {
 }
 
 impl Iterator for LogIterator<'_> {
-    type Item = [u8];
-    fn next(&mut self) -> Option<&Self::Item> {
+    type Item = Vec<u8>;
+    fn next(&mut self) -> Option<Self::Item> {
         if self.currentpos == self.fm.blocksize() {
             self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
 
@@ -28,7 +28,7 @@ impl Iterator for LogIterator<'_> {
             self.currentpos += i32_size;
             self.currentpos += i32_size + rec.len() as u64;
 
-            return Some(rec);
+            return Some(rec.into_vec());
         }
 
         None
@@ -36,6 +36,22 @@ impl Iterator for LogIterator<'_> {
 }
 
 impl LogIterator<'_> {
+    pub fn new<'a>(fm: &'a mut FileMgr<'a>, blk: BlockId) -> Result<LogIterator<'a>> {
+        let mut page = Page::new_from_size(fm.blocksize() as usize);
+
+        fm.read(&mut blk, &mut page)?;
+        let boundary = page.get_int(0)? as u64;
+        let currentpos = boundary;
+
+        Ok(LogIterator {
+            fm: fm,
+            blk: blk,
+            p: page,
+            currentpos: currentpos,
+            boundary: boundary,
+        })
+    }
+
     fn move_to_block(&mut self, blk: BlockId) -> Result<()> {
         self.fm.read(&mut blk, &mut self.p)?;
         self.boundary = self.p.get_int(0)? as u64;
