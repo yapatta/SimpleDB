@@ -59,7 +59,7 @@ impl Page {
         }
     }
 
-    fn get_bytes(&self, offset: usize) -> anyhow::Result<&[u8]> {
+    pub(crate) fn get_bytes(&self, offset: usize) -> anyhow::Result<&[u8]> {
         let len = self.get_int(offset)? as usize;
         let new_offset = offset + mem::size_of::<i32>();
 

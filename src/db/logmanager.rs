@@ -57,11 +57,7 @@ impl LogMgr<'_> {
         if boundary as usize - bytesneeded < int32_size {
             self.flush()?;
 
-            let mut blk = self.fm.append(self.logfile.clone())?;
-            self.logpage.set_int(0, self.fm.blocksize() as i32)?;
-            self.fm.write(&mut blk, &mut self.logpage)?;
-
-            self.currentblk = blk;
+            self.currentblk = self.append_newblk()?;
             boundary = self.logpage.get_int(0)?;
         }
 
@@ -73,10 +69,31 @@ impl LogMgr<'_> {
         Ok(self.lastsaved_lsn)
     }
 
+    pub fn flush_from_lsn(&mut self, lsn: u64) -> Result<()> {
+        if lsn > self.lastsaved_lsn {
+            self.flush()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn iterator(&mut self) -> Result<Iterator<&[u8]>> {
+        self.flush()?;
+        Ok(LogIterator::new(self.fm, self.currentblk))
+    }
+
     fn flush(&mut self) -> Result<()> {
         self.fm.write(&mut self.currentblk, &mut self.logpage)?;
         self.lastsaved_lsn = self.latest_lsn;
 
         Ok(())
+    }
+
+    fn append_newblk(&mut self) -> Result<BlockId> {
+        let mut blk = self.fm.append(self.logfile.clone())?;
+        self.logpage.set_int(0, self.fm.blocksize() as i32)?;
+        self.fm.write(&mut blk, &mut self.logpage)?;
+
+        Ok(blk)
     }
 }
