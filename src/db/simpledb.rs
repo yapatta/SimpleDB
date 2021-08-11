@@ -1,8 +1,8 @@
 use super::filemanager::FileMgr;
 
 pub struct SimpleDB {
-    blocksize: u64,
-    buffersize: u64,
-    log_filename: String,
-    file_mgr: FileMgr,
+    _blocksize: u64,
+    _buffersize: u64,
+    _log_filename: String,
+    _file_mgr: FileMgr,
 }

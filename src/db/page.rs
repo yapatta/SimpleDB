@@ -104,7 +104,7 @@ impl Page {
     }
 
     // for tests
-    pub(crate) fn contents_str(&mut self) -> &str {
+    pub(crate) fn _contents_str(&mut self) -> &str {
         str::from_utf8(self.contents()).unwrap()
     }
 
