@@ -1,22 +1,26 @@
 use super::blockid::BlockId;
 use super::filemanager::FileMgr;
-use super::logiterator::LogIterator;
 use super::page::Page;
 
 use anyhow::Result;
+use std::cell::RefCell;
 use std::mem;
+use std::rc::Rc;
 
-pub struct LogMgr<'a> {
-    fm: &'a mut FileMgr<'a>,
+pub struct LogMgr {
+    fm: FileMgr,
     logfile: String,
     logpage: Page,
     currentblk: BlockId,
     latest_lsn: u64,
     lastsaved_lsn: u64,
+    // iterator: RefCell<Rc<LogIteratorEnum>>,
 }
 
-impl LogMgr<'_> {
-    pub fn new<'a>(fm: &'a mut FileMgr<'a>, logfile: String) -> Result<LogMgr<'a>> {
+enum LogIteratorEnum {}
+
+impl LogMgr {
+    pub fn new<'a>(mut fm: FileMgr, logfile: String) -> Result<LogMgr> {
         let mut logpage = Page::new_from_size(fm.blocksize() as usize);
         let logsize = fm.length(logfile.clone())?;
 

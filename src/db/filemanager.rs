@@ -27,15 +27,15 @@ impl fmt::Display for FileMgrError {
     }
 }
 
-pub struct FileMgr<'a> {
-    db_directory: &'a Path,
+pub struct FileMgr {
+    db_directory: String,
     blocksize: u64,
     is_new: bool,
     open_files: HashMap<String, File>,
 }
 
-impl FileMgr<'_> {
-    pub fn new<'a>(db_directory: &'a str, blocksize: u64) -> Result<FileMgr<'a>> {
+impl FileMgr {
+    pub fn new<'a>(db_directory: &'a str, blocksize: u64) -> Result<FileMgr> {
         let path = Path::new(db_directory);
         let is_new = !path.exists();
 
@@ -58,7 +58,7 @@ impl FileMgr<'_> {
         }
 
         Ok(FileMgr {
-            db_directory: path,
+            db_directory: String::from(db_directory),
             blocksize: blocksize,
             is_new: is_new,
             open_files: HashMap::new(),
@@ -131,7 +131,7 @@ impl FileMgr<'_> {
     }
 
     pub fn length(&mut self, filename: String) -> Result<u64> {
-        let path = Path::new(self.db_directory).join(&filename);
+        let path = Path::new(&self.db_directory).join(&filename);
         self.configure_file_table(filename)?;
         let md = fs::metadata(&path)?;
 
@@ -140,7 +140,7 @@ impl FileMgr<'_> {
     }
 
     pub fn configure_file_table(&mut self, filename: String) -> anyhow::Result<()> {
-        let path = Path::new(self.db_directory).join(&filename);
+        let path = Path::new(&self.db_directory).join(&filename);
 
         if !self.open_files.contains_key(&filename) {
             // both read and write mode

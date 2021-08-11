@@ -3,21 +3,22 @@ use super::filemanager::FileMgr;
 use super::page::Page;
 
 use anyhow::Result;
+use std::cell::RefCell;
 use std::mem;
 
-pub struct LogIterator<'a> {
-    fm: &'a mut FileMgr<'a>,
-    blk: &'a mut BlockId,
+pub struct LogIterator {
+    fm: RefCell<FileMgr>,
+    blk: BlockId,
     p: Page,
     currentpos: u64,
     boundary: u64,
 }
 
-impl LogIterator<'_> {
-    pub fn new<'a>(fm: &'a mut FileMgr<'a>, blk: &'a mut BlockId) -> Result<LogIterator<'a>> {
-        let mut page = Page::new_from_size(fm.blocksize() as usize);
+impl LogIterator {
+    pub fn new<'a>(fm: RefCell<FileMgr>, mut blk: BlockId) -> Result<LogIterator> {
+        let mut page = Page::new_from_size(fm.borrow().blocksize() as usize);
 
-        fm.read(blk, &mut page)?;
+        fm.borrow_mut().read(&mut blk, &mut page)?;
         let boundary = page.get_int(0)? as u64;
         let currentpos = boundary;
 
@@ -31,10 +32,10 @@ impl LogIterator<'_> {
     }
 
     fn next(&mut self) -> Option<&[u8]> {
-        if self.currentpos == self.fm.blocksize() {
-            *self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
+        if self.currentpos == self.fm.borrow().blocksize() {
+            self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
 
-            if let Err(_) = self.fm.read(&mut self.blk, &mut self.p) {
+            if let Err(_) = self.fm.borrow_mut().read(&mut self.blk, &mut self.p) {
                 return None;
             }
 
@@ -57,6 +58,6 @@ impl LogIterator<'_> {
     }
 
     pub fn has_next(&self) -> bool {
-        self.currentpos < self.fm.blocksize() || self.blk.number() > 0
+        self.currentpos < self.fm.borrow().blocksize() || self.blk.number() > 0
     }
 }

@@ -1,8 +1,8 @@
 use super::filemanager::FileMgr;
 
-pub struct SimpleDB<'a> {
+pub struct SimpleDB {
     blocksize: u64,
     buffersize: u64,
     log_filename: String,
-    file_mgr: &'a FileMgr<'a>,
+    file_mgr: FileMgr,
 }
