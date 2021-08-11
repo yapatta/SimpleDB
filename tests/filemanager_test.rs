@@ -1,10 +1,11 @@
 use simple_db::blockid::BlockId;
+use simple_db::constants::BLOCKSIZE;
 use simple_db::filemanager::FileMgr;
 use simple_db::page::Page;
 
 #[test]
 fn test_new_filemgr() {
-    let mut fm = FileMgr::new("./testdb", 400).unwrap();
+    let mut fm = FileMgr::new("./testdb", BLOCKSIZE).unwrap();
     let mut blk = BlockId::new("testfile", 2);
 
     let mut p1 = Page::new_from_size(fm.blocksize() as usize);

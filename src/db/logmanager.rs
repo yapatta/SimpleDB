@@ -6,17 +6,18 @@ use super::page::Page;
 use anyhow::Result;
 use std::mem;
 
-pub struct LogMgr<'a> {
-    fm: &'a mut FileMgr<'a>,
+pub struct LogMgr<'a, 'b> {
+    fm: FileMgr<'b>,
     logfile: String,
     logpage: Page,
     currentblk: BlockId,
     latest_lsn: u64,
     lastsaved_lsn: u64,
+    iterator: LogIterator<'a, 'b>,
 }
 
-impl LogMgr<'_> {
-    pub fn new<'a>(fm: &'a mut FileMgr<'a>, logfile: String) -> Result<LogMgr<'a>> {
+impl LogMgr<'_, '_> {
+    pub fn new<'a, 'b>(mut fm: FileMgr<'b>, logfile: String) -> Result<LogMgr<'a, 'b>> {
         let mut logpage = Page::new_from_size(fm.blocksize() as usize);
         let logsize = fm.length(logfile.clone())?;
 
@@ -25,6 +26,8 @@ impl LogMgr<'_> {
             logpage.set_int(0, fm.blocksize() as i32)?;
             fm.write(&mut blk, &mut logpage)?;
 
+            let iterator = LogIterator::new(&mut fm, &mut blk.clone())?;
+
             return Ok(LogMgr {
                 fm: fm,
                 logfile: logfile,
@@ -32,10 +35,13 @@ impl LogMgr<'_> {
                 currentblk: blk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
+                iterator: iterator,
             });
         } else {
             let mut newblk = BlockId::new(&logfile, logsize - 1);
             fm.read(&mut newblk, &mut logpage)?;
+
+            let iterator = LogIterator::new(&mut fm, &mut newblk)?;
 
             return Ok(LogMgr {
                 fm: fm,
@@ -44,6 +50,7 @@ impl LogMgr<'_> {
                 currentblk: newblk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
+                iterator: iterator,
             });
         };
     }
@@ -70,16 +77,6 @@ impl LogMgr<'_> {
 
         Ok(self.lastsaved_lsn)
     }
-
-    // TODO: use iterator
-    /*
-    pub fn iterator(&mut self) -> Result<()> {
-        self.flush()?;
-        self.iterator = LogIterator::new(self.fm, &mut self.currentblk)?;
-
-        Ok(())
-    }
-    */
 
     pub fn flush_from_lsn(&mut self, lsn: u64) -> Result<()> {
         if lsn > self.lastsaved_lsn {

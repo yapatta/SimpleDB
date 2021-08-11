@@ -35,7 +35,7 @@ pub struct FileMgr<'a> {
 }
 
 impl FileMgr<'_> {
-    pub fn new<'a>(db_directory: &'a str, blocksize: u64) -> Result<FileMgr<'a>> {
+    pub fn new<'a>(db_directory: &'a str, blocksize: u64) -> Result<FileMgr> {
         let path = Path::new(db_directory);
         let is_new = !path.exists();
 
@@ -131,7 +131,7 @@ impl FileMgr<'_> {
     }
 
     pub fn length(&mut self, filename: String) -> Result<u64> {
-        let path = Path::new(self.db_directory).join(&filename);
+        let path = Path::new(&self.db_directory).join(&filename);
         self.configure_file_table(filename)?;
         let md = fs::metadata(&path)?;
 
@@ -140,7 +140,7 @@ impl FileMgr<'_> {
     }
 
     pub fn configure_file_table(&mut self, filename: String) -> anyhow::Result<()> {
-        let path = Path::new(self.db_directory).join(&filename);
+        let path = Path::new(&self.db_directory).join(&filename);
 
         if !self.open_files.contains_key(&filename) {
             // both read and write mode
