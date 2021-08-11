@@ -1,23 +1,26 @@
 use super::blockid::BlockId;
+// use super::constants::BLOCKSIZE;
 use super::filemanager::FileMgr;
 use super::page::Page;
 
 use anyhow::Result;
+use std::cell::RefCell;
 use std::mem;
+use std::rc::Rc;
 
-pub struct LogIterator<'a> {
-    fm: &'a mut FileMgr<'a>,
-    blk: &'a mut BlockId,
+pub struct LogIterator {
+    fm: Rc<RefCell<FileMgr>>,
+    blk: BlockId,
     p: Page,
     currentpos: u64,
     boundary: u64,
 }
 
-impl LogIterator<'_> {
-    pub fn new<'a>(fm: &'a mut FileMgr<'a>, blk: &'a mut BlockId) -> Result<LogIterator<'a>> {
-        let mut page = Page::new_from_size(fm.blocksize() as usize);
+impl LogIterator {
+    pub fn new<'a>(fm: Rc<RefCell<FileMgr>>, mut blk: BlockId) -> Result<LogIterator> {
+        let mut page = Page::new_from_size(fm.borrow().blocksize() as usize);
 
-        fm.read(blk, &mut page)?;
+        fm.borrow_mut().read(&mut blk, &mut page)?;
         let boundary = page.get_int(0)? as u64;
         let currentpos = boundary;
 
@@ -30,11 +33,24 @@ impl LogIterator<'_> {
         })
     }
 
-    fn next(&mut self) -> Option<&[u8]> {
-        if self.currentpos == self.fm.blocksize() {
-            *self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
+    pub fn has_next(&self) -> bool {
+        self.currentpos < self.fm.borrow().blocksize() || self.blk.number() > 0
+    }
+}
 
-            if let Err(_) = self.fm.read(&mut self.blk, &mut self.p) {
+impl Iterator for LogIterator {
+    // type Item = [u8; BLOCKSIZE as usize];
+    type Item = Vec<u8>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.has_next() {
+            return None;
+        }
+
+        if self.currentpos == self.fm.borrow().blocksize() {
+            self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
+
+            if let Err(_) = self.fm.borrow_mut().read(&mut self.blk, &mut self.p) {
                 return None;
             }
 
@@ -45,18 +61,14 @@ impl LogIterator<'_> {
                 return None;
             }
         }
-        if let Ok(rec) = self.p.get_bytes(self.currentpos as usize) {
+
+        if let Ok(rec) = self.p.get_bytes_vec(self.currentpos as usize) {
             let i32_size = mem::size_of::<i32>() as u64;
-            self.currentpos += i32_size;
             self.currentpos += i32_size + rec.len() as u64;
 
             return Some(rec);
         }
 
         None
-    }
-
-    pub fn has_next(&self) -> bool {
-        self.currentpos < self.fm.blocksize() || self.blk.number() > 0
     }
 }

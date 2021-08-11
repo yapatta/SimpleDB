@@ -1,7 +1,7 @@
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BlockId {
     filename: String,
     blknum: u64,
