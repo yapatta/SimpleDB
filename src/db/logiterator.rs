@@ -1,4 +1,5 @@
 use super::blockid::BlockId;
+use super::constants::BLOCKSIZE;
 use super::filemanager::FileMgr;
 use super::page::Page;
 
@@ -32,7 +33,15 @@ impl LogIterator {
         })
     }
 
-    fn next(&mut self) -> Option<&[u8]> {
+    pub fn has_next(&self) -> bool {
+        self.currentpos < self.fm.borrow().blocksize() || self.blk.number() > 0
+    }
+}
+
+impl Iterator for LogIterator {
+    type Item = [u8; BLOCKSIZE as usize];
+
+    fn next(&mut self) -> Option<Self::Item> {
         if self.currentpos == self.fm.borrow().blocksize() {
             self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
 
@@ -47,7 +56,7 @@ impl LogIterator {
                 return None;
             }
         }
-        if let Ok(rec) = self.p.get_bytes(self.currentpos as usize) {
+        if let Ok(rec) = self.p.get_bytes_array(self.currentpos as usize) {
             let i32_size = mem::size_of::<i32>() as u64;
             self.currentpos += i32_size;
             self.currentpos += i32_size + rec.len() as u64;
@@ -56,9 +65,5 @@ impl LogIterator {
         }
 
         None
-    }
-
-    pub fn has_next(&self) -> bool {
-        self.currentpos < self.fm.borrow().blocksize() || self.blk.number() > 0
     }
 }
