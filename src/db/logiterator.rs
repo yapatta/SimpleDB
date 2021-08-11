@@ -1,5 +1,4 @@
 use super::blockid::BlockId;
-// use super::constants::BLOCKSIZE;
 use super::filemanager::FileMgr;
 use super::page::Page;
 
@@ -17,7 +16,7 @@ pub struct LogIterator {
 }
 
 impl LogIterator {
-    pub fn new<'a>(fm: Rc<RefCell<FileMgr>>, mut blk: BlockId) -> Result<LogIterator> {
+    pub fn new(fm: Rc<RefCell<FileMgr>>, mut blk: BlockId) -> Result<LogIterator> {
         let mut page = Page::new_from_size(fm.borrow().blocksize() as usize);
 
         fm.borrow_mut().read(&mut blk, &mut page)?;
@@ -39,7 +38,6 @@ impl LogIterator {
 }
 
 impl Iterator for LogIterator {
-    // type Item = [u8; BLOCKSIZE as usize];
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {

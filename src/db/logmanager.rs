@@ -73,15 +73,11 @@ impl LogMgr {
         Ok(self.lastsaved_lsn)
     }
 
-    pub fn iterator(&mut self) -> Result<RefCell<Rc<LogIterator>>> {
+    pub fn iterator(&mut self) -> Result<LogIterator> {
         self.flush()?;
+        let iter = LogIterator::new(Rc::clone(&self.fm), self.currentblk.clone())?;
 
-        let iter = RefCell::new(Rc::new(LogIterator::new(
-            Rc::clone(&self.fm),
-            self.currentblk.clone(),
-        )?));
-
-        return Ok(iter);
+        Ok(iter)
     }
 
     pub fn flush_from_lsn(&mut self, lsn: u64) -> Result<()> {

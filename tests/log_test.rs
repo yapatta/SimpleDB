@@ -18,17 +18,16 @@ fn log_test() {
 
 fn print_log_record(lm: &mut LogMgr, msg: String) -> Result<()> {
     println!("{}", msg);
-    // init
-    if let Some(lmi) = Rc::get_mut(&mut lm.iterator()?.borrow_mut()) {
-        for rec in lmi {
-            let p = Page::new_from_bytes(rec);
-            let s = p.get_string(0)?;
-            let npos = Page::max_length(s.len());
-            let val = p.get_int(npos)?;
-            println!("[{}, {}]", s, val);
-        }
-        println!();
+
+    for rec in lm.iterator()? {
+        let p = Page::new_from_bytes(rec);
+        let s = p.get_string(0)?;
+        let npos = Page::max_length(s.len());
+        let val = p.get_int(npos)?;
+        println!("[{}, {}]", s, val);
     }
+    println!();
+
     Ok(())
 }
 

@@ -5,8 +5,6 @@ use std::fmt;
 use std::mem;
 use std::str;
 
-use super::constants::BLOCKSIZE;
-
 #[derive(Debug)]
 enum PageError {
     BufferSizeExceeded,
@@ -111,20 +109,6 @@ impl Page {
     }
 
     pub(crate) fn get_bytes_vec(&self, offset: usize) -> anyhow::Result<Vec<u8>> {
-        let len = self.get_int(offset)? as usize;
-        let new_offset = offset + mem::size_of::<i32>();
-
-        if new_offset + len - 1 < self.bb.len() {
-            Ok(self.bb[new_offset..new_offset + len].try_into()?)
-        } else {
-            Err(PageError::BufferSizeExceeded)?
-        }
-    }
-
-    pub(crate) fn get_bytes_array(
-        &self,
-        offset: usize,
-    ) -> anyhow::Result<[u8; BLOCKSIZE as usize]> {
         let len = self.get_int(offset)? as usize;
         let new_offset = offset + mem::size_of::<i32>();
 
