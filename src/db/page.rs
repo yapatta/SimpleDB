@@ -101,13 +101,24 @@ impl Page {
     }
 
     // needed by FileMgr
-    pub(crate) fn contents(&mut self) -> &mut Vec<u8> {
+    pub fn contents(&mut self) -> &mut Vec<u8> {
         &mut self.bb
     }
 
     // for tests
     pub(crate) fn contents_str(&mut self) -> &str {
         str::from_utf8(self.contents()).unwrap()
+    }
+
+    pub(crate) fn get_bytes_vec(&self, offset: usize) -> anyhow::Result<Vec<u8>> {
+        let len = self.get_int(offset)? as usize;
+        let new_offset = offset + mem::size_of::<i32>();
+
+        if new_offset + len - 1 < self.bb.len() {
+            Ok(self.bb[new_offset..new_offset + len].try_into()?)
+        } else {
+            Err(PageError::BufferSizeExceeded)?
+        }
     }
 
     pub(crate) fn get_bytes_array(

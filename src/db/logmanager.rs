@@ -15,7 +15,6 @@ pub struct LogMgr {
     currentblk: BlockId,
     latest_lsn: u64,
     lastsaved_lsn: u64,
-    iterator: RefCell<Rc<Option<LogIterator>>>,
 }
 
 impl LogMgr {
@@ -35,7 +34,6 @@ impl LogMgr {
                 currentblk: blk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
-                iterator: RefCell::new(Rc::new(None)),
             });
         } else {
             let mut newblk = BlockId::new(&logfile, logsize - 1);
@@ -48,7 +46,6 @@ impl LogMgr {
                 currentblk: newblk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
-                iterator: RefCell::new(Rc::new(None)),
             });
         };
     }
@@ -57,18 +54,18 @@ impl LogMgr {
     // TODO: implement thread safe func
     pub fn append(&mut self, logrec: &mut Vec<u8>) -> Result<u64> {
         let mut boundary = self.logpage.get_int(0)?;
-        let recsize = logrec.len();
-        let int32_size = mem::size_of::<i32>();
+        let recsize = logrec.len() as i32;
+        let int32_size = mem::size_of::<i32>() as i32;
         let bytesneeded = recsize + int32_size;
 
-        if boundary as usize - bytesneeded < int32_size {
+        if boundary - bytesneeded < int32_size {
             self.flush()?;
 
             self.currentblk = self.append_newblk()?;
             boundary = self.logpage.get_int(0)?;
         }
 
-        let recpos = boundary as usize - bytesneeded;
+        let recpos = (boundary - bytesneeded) as usize;
         self.logpage.set_bytes(recpos, logrec)?;
         self.logpage.set_int(0, recpos as i32)?;
         self.latest_lsn += 1;
@@ -76,15 +73,15 @@ impl LogMgr {
         Ok(self.lastsaved_lsn)
     }
 
-    // TODO: use iterator
-    pub fn iterator(&mut self) -> Result<()> {
+    pub fn iterator(&mut self) -> Result<RefCell<Rc<LogIterator>>> {
         self.flush()?;
-        *self.iterator.borrow_mut() = Rc::new(Some(LogIterator::new(
+
+        let iter = RefCell::new(Rc::new(LogIterator::new(
             Rc::clone(&self.fm),
             self.currentblk.clone(),
         )?));
 
-        Ok(())
+        return Ok(iter);
     }
 
     pub fn flush_from_lsn(&mut self, lsn: u64) -> Result<()> {

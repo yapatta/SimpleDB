@@ -11,3 +11,4 @@ Cargo.lock
 
 /testdb
 **/testfile
+/logtests
