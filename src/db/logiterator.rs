@@ -16,19 +16,19 @@ pub struct LogIterator {
 }
 
 impl LogIterator {
-    pub fn new(fm: Rc<RefCell<FileMgr>>, mut blk: BlockId) -> Result<LogIterator> {
-        let mut page = Page::new_from_size(fm.borrow().blocksize() as usize);
+    pub fn new(fm: Rc<RefCell<FileMgr>>, blk: BlockId) -> Result<LogIterator> {
+        let mut p = Page::new_from_size(fm.borrow().blocksize() as usize);
 
-        fm.borrow_mut().read(&mut blk, &mut page)?;
-        let boundary = page.get_int(0)? as u64;
+        fm.borrow_mut().read(&blk, &mut p)?;
+        let boundary = p.get_int(0)? as u64;
         let currentpos = boundary;
 
         Ok(LogIterator {
-            fm: fm,
-            blk: blk,
-            p: page,
-            currentpos: currentpos,
-            boundary: boundary,
+            fm,
+            blk,
+            p,
+            currentpos,
+            boundary,
         })
     }
 
@@ -48,7 +48,7 @@ impl Iterator for LogIterator {
         if self.currentpos == self.fm.borrow().blocksize() {
             self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
 
-            if let Err(_) = self.fm.borrow_mut().read(&mut self.blk, &mut self.p) {
+            if self.fm.borrow_mut().read(&self.blk, &mut self.p).is_err() {
                 return None;
             }
 

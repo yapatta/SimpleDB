@@ -1,4 +1,4 @@
-use anyhow;
+use anyhow::Result;
 use itertools::izip;
 use std::convert::TryInto;
 use std::fmt;
@@ -34,18 +34,18 @@ impl Page {
         }
     }
 
-    pub fn get_int(&self, offset: usize) -> anyhow::Result<i32> {
+    pub fn get_int(&self, offset: usize) -> Result<i32> {
         let i32_size = mem::size_of::<i32>();
 
         if offset + i32_size - 1 < self.bb.len() {
             let bytes = &self.bb[offset..offset + i32_size];
             Ok(i32::from_be_bytes((*bytes).try_into()?))
         } else {
-            Err(PageError::BufferSizeExceeded)?
+            Err(PageError::BufferSizeExceeded.into())
         }
     }
 
-    pub fn set_int(&mut self, offset: usize, n: i32) -> anyhow::Result<usize> {
+    pub fn set_int(&mut self, offset: usize, n: i32) -> Result<usize> {
         let bytes = n.to_be_bytes();
 
         if offset + bytes.len() - 1 < self.bb.len() {
@@ -55,22 +55,22 @@ impl Page {
 
             Ok(offset + bytes.len())
         } else {
-            Err(PageError::BufferSizeExceeded)?
+            Err(PageError::BufferSizeExceeded.into())
         }
     }
 
-    pub(crate) fn get_bytes(&self, offset: usize) -> anyhow::Result<&[u8]> {
+    pub(crate) fn get_bytes(&self, offset: usize) -> Result<&[u8]> {
         let len = self.get_int(offset)? as usize;
         let new_offset = offset + mem::size_of::<i32>();
 
         if new_offset + len - 1 < self.bb.len() {
             Ok(&self.bb[new_offset..new_offset + len])
         } else {
-            Err(PageError::BufferSizeExceeded)?
+            Err(PageError::BufferSizeExceeded.into())
         }
     }
 
-    pub(crate) fn set_bytes(&mut self, offset: usize, b: &[u8]) -> anyhow::Result<usize> {
+    pub(crate) fn set_bytes(&mut self, offset: usize, b: &[u8]) -> Result<usize> {
         if offset + mem::size_of::<i32>() + b.len() - 1 < self.bb.len() {
             let new_offset = self.set_int(offset, b.len() as i32)?;
             for (p, added) in izip!(&mut self.bb[new_offset..new_offset + b.len()], b) {
@@ -79,18 +79,18 @@ impl Page {
 
             Ok(new_offset + b.len())
         } else {
-            Err(PageError::BufferSizeExceeded)?
+            Err(PageError::BufferSizeExceeded.into())
         }
     }
 
-    pub fn get_string(&self, offset: usize) -> anyhow::Result<String> {
+    pub fn get_string(&self, offset: usize) -> Result<String> {
         let bytes = self.get_bytes(offset)?;
         let s = String::from_utf8(bytes.to_vec())?;
 
         Ok(s)
     }
 
-    pub fn set_string(&mut self, offset: usize, s: String) -> anyhow::Result<usize> {
+    pub fn set_string(&mut self, offset: usize, s: String) -> Result<usize> {
         self.set_bytes(offset, s.as_bytes())
     }
 
@@ -108,14 +108,14 @@ impl Page {
         str::from_utf8(self.contents()).unwrap()
     }
 
-    pub(crate) fn get_bytes_vec(&self, offset: usize) -> anyhow::Result<Vec<u8>> {
+    pub(crate) fn get_bytes_vec(&self, offset: usize) -> Result<Vec<u8>> {
         let len = self.get_int(offset)? as usize;
         let new_offset = offset + mem::size_of::<i32>();
 
         if new_offset + len - 1 < self.bb.len() {
             Ok(self.bb[new_offset..new_offset + len].try_into()?)
         } else {
-            Err(PageError::BufferSizeExceeded)?
+            Err(PageError::BufferSizeExceeded.into())
         }
     }
 }
