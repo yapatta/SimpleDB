@@ -5,9 +5,10 @@ use super::page::Page;
 use anyhow::Result;
 use std::cell::RefCell;
 use std::mem;
+use std::rc::Rc;
 
 pub struct LogIterator {
-    fm: RefCell<FileMgr>,
+    fm: Rc<RefCell<FileMgr>>,
     blk: BlockId,
     p: Page,
     currentpos: u64,
@@ -15,7 +16,7 @@ pub struct LogIterator {
 }
 
 impl LogIterator {
-    pub fn new<'a>(fm: RefCell<FileMgr>, mut blk: BlockId) -> Result<LogIterator> {
+    pub fn new<'a>(fm: Rc<RefCell<FileMgr>>, mut blk: BlockId) -> Result<LogIterator> {
         let mut page = Page::new_from_size(fm.borrow().blocksize() as usize);
 
         fm.borrow_mut().read(&mut blk, &mut page)?;

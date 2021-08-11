@@ -1,5 +1,6 @@
 use super::blockid::BlockId;
 use super::filemanager::FileMgr;
+use super::logiterator::LogIterator;
 use super::page::Page;
 
 use anyhow::Result;
@@ -8,26 +9,24 @@ use std::mem;
 use std::rc::Rc;
 
 pub struct LogMgr {
-    fm: FileMgr,
+    fm: Rc<RefCell<FileMgr>>,
     logfile: String,
     logpage: Page,
     currentblk: BlockId,
     latest_lsn: u64,
     lastsaved_lsn: u64,
-    // iterator: RefCell<Rc<LogIteratorEnum>>,
+    iterator: RefCell<Rc<Option<LogIterator>>>,
 }
 
-enum LogIteratorEnum {}
-
 impl LogMgr {
-    pub fn new<'a>(mut fm: FileMgr, logfile: String) -> Result<LogMgr> {
-        let mut logpage = Page::new_from_size(fm.blocksize() as usize);
-        let logsize = fm.length(logfile.clone())?;
+    pub fn new<'a>(fm: Rc<RefCell<FileMgr>>, logfile: String) -> Result<LogMgr> {
+        let mut logpage = Page::new_from_size(fm.borrow().blocksize() as usize);
+        let logsize = fm.borrow_mut().length(logfile.clone())?;
 
         if logsize == 0 {
-            let mut blk = fm.append(logfile.clone())?;
-            logpage.set_int(0, fm.blocksize() as i32)?;
-            fm.write(&mut blk, &mut logpage)?;
+            let mut blk = fm.borrow_mut().append(logfile.clone())?;
+            logpage.set_int(0, fm.borrow().blocksize() as i32)?;
+            fm.borrow_mut().write(&mut blk, &mut logpage)?;
 
             return Ok(LogMgr {
                 fm: fm,
@@ -36,10 +35,11 @@ impl LogMgr {
                 currentblk: blk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
+                iterator: RefCell::new(Rc::new(None)),
             });
         } else {
             let mut newblk = BlockId::new(&logfile, logsize - 1);
-            fm.read(&mut newblk, &mut logpage)?;
+            fm.borrow_mut().read(&mut newblk, &mut logpage)?;
 
             return Ok(LogMgr {
                 fm: fm,
@@ -48,6 +48,7 @@ impl LogMgr {
                 currentblk: newblk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
+                iterator: RefCell::new(Rc::new(None)),
             });
         };
     }
@@ -76,14 +77,15 @@ impl LogMgr {
     }
 
     // TODO: use iterator
-    /*
     pub fn iterator(&mut self) -> Result<()> {
         self.flush()?;
-        self.iterator = LogIterator::new(self.fm, &mut self.currentblk)?;
+        *self.iterator.borrow_mut() = Rc::new(Some(LogIterator::new(
+            Rc::clone(&self.fm),
+            self.currentblk.clone(),
+        )?));
 
         Ok(())
     }
-    */
 
     pub fn flush_from_lsn(&mut self, lsn: u64) -> Result<()> {
         if lsn > self.lastsaved_lsn {
@@ -94,16 +96,19 @@ impl LogMgr {
     }
 
     fn flush(&mut self) -> Result<()> {
-        self.fm.write(&mut self.currentblk, &mut self.logpage)?;
+        self.fm
+            .borrow_mut()
+            .write(&mut self.currentblk, &mut self.logpage)?;
         self.lastsaved_lsn = self.latest_lsn;
 
         Ok(())
     }
 
     fn append_newblk(&mut self) -> Result<BlockId> {
-        let mut blk = self.fm.append(self.logfile.clone())?;
-        self.logpage.set_int(0, self.fm.blocksize() as i32)?;
-        self.fm.write(&mut blk, &mut self.logpage)?;
+        let mut blk = self.fm.borrow_mut().append(self.logfile.clone())?;
+        self.logpage
+            .set_int(0, self.fm.borrow().blocksize() as i32)?;
+        self.fm.borrow_mut().write(&mut blk, &mut self.logpage)?;
 
         Ok(blk)
     }
