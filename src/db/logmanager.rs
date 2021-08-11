@@ -18,36 +18,40 @@ pub struct LogMgr {
 }
 
 impl LogMgr {
-    pub fn new<'a>(fm: Rc<RefCell<FileMgr>>, logfile: String) -> Result<LogMgr> {
+    pub fn new(fm: Rc<RefCell<FileMgr>>, logfile: String) -> Result<LogMgr> {
         let mut logpage = Page::new_from_size(fm.borrow().blocksize() as usize);
         let logsize = fm.borrow_mut().length(logfile.clone())?;
 
-        if logsize == 0 {
-            let mut blk = fm.borrow_mut().append(logfile.clone())?;
-            logpage.set_int(0, fm.borrow().blocksize() as i32)?;
-            fm.borrow_mut().write(&mut blk, &mut logpage)?;
+        let logmgr;
 
-            return Ok(LogMgr {
-                fm: fm,
-                logfile: logfile,
-                logpage: logpage,
+        if logsize == 0 {
+            let blk = fm.borrow_mut().append(logfile.clone())?;
+            logpage.set_int(0, fm.borrow().blocksize() as i32)?;
+            fm.borrow_mut().write(&blk, &mut logpage)?;
+
+            logmgr = LogMgr {
+                fm,
+                logfile,
+                logpage,
                 currentblk: blk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
-            });
+            };
         } else {
-            let mut newblk = BlockId::new(&logfile, logsize - 1);
-            fm.borrow_mut().read(&mut newblk, &mut logpage)?;
+            let newblk = BlockId::new(&logfile, logsize - 1);
+            fm.borrow_mut().read(&newblk, &mut logpage)?;
 
-            return Ok(LogMgr {
-                fm: fm,
-                logfile: logfile,
-                logpage: logpage,
+            logmgr = LogMgr {
+                fm,
+                logfile,
+                logpage,
                 currentblk: newblk,
                 latest_lsn: 0,
                 lastsaved_lsn: 0,
-            });
+            };
         };
+
+        Ok(logmgr)
     }
 
     // ブロック内に空き容量があればログを追加, なければ新しいブロックを作成してログ追加
@@ -91,17 +95,17 @@ impl LogMgr {
     fn flush(&mut self) -> Result<()> {
         self.fm
             .borrow_mut()
-            .write(&mut self.currentblk, &mut self.logpage)?;
+            .write(&self.currentblk, &mut self.logpage)?;
         self.lastsaved_lsn = self.latest_lsn;
 
         Ok(())
     }
 
     fn append_newblk(&mut self) -> Result<BlockId> {
-        let mut blk = self.fm.borrow_mut().append(self.logfile.clone())?;
+        let blk = self.fm.borrow_mut().append(self.logfile.clone())?;
         self.logpage
             .set_int(0, self.fm.borrow().blocksize() as i32)?;
-        self.fm.borrow_mut().write(&mut blk, &mut self.logpage)?;
+        self.fm.borrow_mut().write(&blk, &mut self.logpage)?;
 
         Ok(blk)
     }

@@ -11,7 +11,7 @@ impl BlockId {
     pub fn new(filename: &str, blknum: u64) -> BlockId {
         BlockId {
             filename: filename.to_string(),
-            blknum: blknum,
+            blknum,
         }
     }
 

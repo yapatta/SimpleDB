@@ -35,7 +35,7 @@ pub struct FileMgr {
 }
 
 impl FileMgr {
-    pub fn new<'a>(db_directory: &'a str, blocksize: u64) -> Result<FileMgr> {
+    pub fn new(db_directory: &str, blocksize: u64) -> Result<FileMgr> {
         let path = Path::new(db_directory);
         let is_new = !path.exists();
 
@@ -59,8 +59,8 @@ impl FileMgr {
 
         Ok(FileMgr {
             db_directory: String::from(db_directory),
-            blocksize: blocksize,
-            is_new: is_new,
+            blocksize,
+            is_new,
             open_files: HashMap::new(),
         })
     }
@@ -96,7 +96,7 @@ impl FileMgr {
 
             let offset = blk.number() * self.blocksize;
             f.seek(SeekFrom::Start(offset))?;
-            f.write(p.contents())?;
+            f.write_all(p.contents())?;
 
             f.unlock()?;
 
@@ -120,7 +120,7 @@ impl FileMgr {
             f.lock_exclusive()?;
 
             f.seek(SeekFrom::Start(blk.number() * self.blocksize))?;
-            f.write(&b)?;
+            f.write_all(&b)?;
 
             f.unlock()?;
 
@@ -142,19 +142,13 @@ impl FileMgr {
     pub fn configure_file_table(&mut self, filename: String) -> anyhow::Result<()> {
         let path = Path::new(&self.db_directory).join(&filename);
 
-        if !self.open_files.contains_key(&filename) {
-            // both read and write mode
-            let f = OpenOptions::new()
+        self.open_files.entry(filename).or_insert(
+            OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
-                .open(&path)?;
-
-            // never happen
-            if let Some(_) = self.open_files.insert(filename, f) {
-                return Err(From::from(FileMgrError::InternalError));
-            }
-        }
+                .open(&path)?,
+        );
 
         Ok(())
     }
