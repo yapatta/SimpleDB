@@ -14,7 +14,7 @@ use std::path::Path;
 #[derive(Debug)]
 enum FileMgrError {
     ParseFailed,
-    InternalError,
+    FileAccessFailed(String),
 }
 
 impl std::error::Error for FileMgrError {}
@@ -22,7 +22,9 @@ impl fmt::Display for FileMgrError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             FileMgrError::ParseFailed => write!(f, "parse failed"),
-            FileMgrError::InternalError => write!(f, "internal errror"),
+            FileMgrError::FileAccessFailed(filename) => {
+                write!(f, "file access failed: {}", filename)
+            }
         }
     }
 }
@@ -83,7 +85,7 @@ impl FileMgr {
             return Ok(());
         }
 
-        Err(From::from(FileMgrError::InternalError))
+        Err(From::from(FileMgrError::FileAccessFailed(blk.filename())))
     }
 
     // pの内容をbufに書き込み
@@ -103,7 +105,7 @@ impl FileMgr {
             return Ok(());
         }
 
-        Err(From::from(FileMgrError::InternalError))
+        Err(From::from(FileMgrError::FileAccessFailed(blk.filename())))
     }
 
     // seek to the end of the file and write an empty array of bytes to it
@@ -127,7 +129,7 @@ impl FileMgr {
             return Ok(blk);
         }
 
-        Err(From::from(FileMgrError::InternalError))
+        Err(From::from(FileMgrError::FileAccessFailed(blk.filename())))
     }
 
     pub fn length(&mut self, filename: String) -> Result<u64> {
