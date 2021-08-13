@@ -73,7 +73,7 @@ impl FileMgr {
         self.configure_file_table(blk.filename())?;
 
         if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-            f.lock_exclusive()?;
+            f.lock_shared()?;
 
             let offset = blk.number() * self.blocksize;
             f.seek(SeekFrom::Start(offset))?;
