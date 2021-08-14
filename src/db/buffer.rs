@@ -92,6 +92,8 @@ impl Buffer {
             if let Some(br) = self.blk.as_ref() {
                 self.fm.borrow_mut().write(br, &mut self.contents)?;
                 self.txnum -= 1;
+            } else {
+                return Err(From::from(BufferError::BlockNotFound));
             }
         }
 
