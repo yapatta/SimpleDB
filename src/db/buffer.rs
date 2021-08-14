@@ -75,13 +75,9 @@ impl Buffer {
 
     pub fn assign_to_block(&mut self, b: BlockId) -> Result<()> {
         self.flush()?;
-
+        self.fm.borrow_mut().read(&b, &mut self.contents)?;
         self.blk = Some(b);
 
-        // never arise error
-        self.fm
-            .borrow_mut()
-            .read(&self.blk.as_ref().unwrap(), &mut self.contents)?;
         Ok(())
     }
 
