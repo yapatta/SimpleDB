@@ -29,10 +29,10 @@ pub struct Buffer {
     fm: Rc<RefCell<FileMgr>>,
     lm: Rc<RefCell<LogMgr>>,
     contents: Page,
-    blk: Option<BlockId>,
-    pins: u64,
-    txnum: i32,
-    lsn: i32,
+    blk: Option<BlockId>, // reference to the block assigned to its page
+    pins: u64,            // the number of times the page is pinned
+    txnum: i32, // an integer indicating if the page has been modified. The integer indentifies the transaction that make the change
+    lsn: i32, // log information. if the page has been modified, the buffer holds the LSN of the most recent log record.
 }
 
 impl Buffer {
@@ -54,7 +54,7 @@ impl Buffer {
         &mut self.contents
     }
 
-    pub fn block(&mut self) -> Option<&BlockId> {
+    pub fn block(&self) -> Option<&BlockId> {
         self.blk.as_ref()
     }
 
@@ -73,6 +73,7 @@ impl Buffer {
         self.txnum
     }
 
+    // associate the buffer with the specific block, reading its content from disk
     pub fn assign_to_block(&mut self, b: BlockId) -> Result<()> {
         self.flush()?;
         self.fm.borrow_mut().read(&b, &mut self.contents)?;
@@ -81,13 +82,16 @@ impl Buffer {
         Ok(())
     }
 
-    fn flush(&mut self) -> Result<()> {
+    // ensure the buffer's assigned disk block has the same values as its page
+    pub fn flush(&mut self) -> Result<()> {
+        // page has been changed
         if self.txnum >= 0 {
             self.lm.borrow_mut().flush_from_lsn(self.lsn as u64)?;
 
             if let Some(br) = self.blk.as_ref() {
                 self.fm.borrow_mut().write(br, &mut self.contents)?;
-                self.txnum -= 1;
+                // need not flush again
+                self.txnum = -1;
             } else {
                 return Err(From::from(BufferError::BlockNotFound));
             }
