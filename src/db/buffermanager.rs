@@ -117,6 +117,9 @@ impl BufferMgr {
         }
 
         if buff_index >= 0 {
+            if !self.bufferpool[buff_index as usize].is_pinned() {
+                self.num_available -= 1;
+            }
             self.bufferpool[buff_index as usize].pin();
 
             return Some(buff_index as usize);

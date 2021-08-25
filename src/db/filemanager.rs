@@ -76,11 +76,10 @@ impl FileMgr {
             f.lock_exclusive()?;
 
             let offset = blk.number() * self.blocksize;
-            println!("offset: {}", offset);
             f.seek(SeekFrom::Start(offset))?;
 
-            // ERROR: bytes are not added because of
-            f.read_exact(p.contents()).unwrap();
+            // ERROR: bytes are not added because of ...
+            f.read(p.contents())?;
 
             f.unlock()?;
 

@@ -18,18 +18,18 @@ fn buffermgr_test() {
     let mut lm = LogMgr::new(fmrc, String::from("bufferfile")).unwrap();
     let mut bm = BufferMgr::new(fmrc2, Rc::new(RefCell::new(lm)), 3);
 
+    println!("Available buffers: {}", bm.available());
     let b0 = BlockId::new("bufferfile", 0);
     let n0 = bm.pin(&b0).unwrap();
+    bm.unpin(0).unwrap();
+    println!("Available buffers: {}", bm.available());
     let b1 = BlockId::new("bufferfile", 1);
     let n1 = bm.pin(&b1).unwrap();
-    /*
-    println!("Available buffers: {}", bm.available());
     let b2 = bm.pin(&BlockId::new("bufferfile", 2)).unwrap();
     bm.unpin(1).unwrap();
     let b3 = bm.pin(&BlockId::new("bufferfile", 0)).unwrap();
     let b4 = bm.pin(&BlockId::new("bufferfile", 1)).unwrap();
     println!("Available buffers: {}", bm.available());
     println!("Attempting to pin block 3...");
-    */
     assert_eq!(0, 1);
 }
