@@ -37,7 +37,7 @@ impl fmt::Display for BufferMgrError {
 pub struct BufferMgr {
     bufferpool: Vec<Buffer>,
     num_available: usize,
-    l: Arc<Mutex<bool>>,
+    l: Arc<Mutex<()>>,
 }
 
 impl BufferMgr {
@@ -49,12 +49,12 @@ impl BufferMgr {
         BufferMgr {
             bufferpool,
             num_available: numbuffs,
-            l: Arc::new(Mutex::new(true)),
+            l: Arc::new(Mutex::default()),
         }
     }
 
     pub fn flush_all(&mut self, txnum: i32) -> Result<()> {
-        if let Ok(_) = self.l.lock() {
+        if self.l.lock().is_ok() {
             for i in 0..self.bufferpool.len() {
                 if self.bufferpool[i].modifying_tx() == txnum {
                     self.bufferpool[i].flush()?;
@@ -104,13 +104,11 @@ impl BufferMgr {
         let mut buff_index: i32 = -1;
         if let Some(i) = self.find_existing_buffer(blk) {
             buff_index = i as i32;
-        } else {
-            if let Some(i) = self.choose_unpinned_buffer() {
-                buff_index = i as i32;
+        } else if let Some(i) = self.choose_unpinned_buffer() {
+            buff_index = i as i32;
 
-                if self.bufferpool[i].assign_to_block(blk.clone()).is_err() {
-                    return None;
-                }
+            if self.bufferpool[i].assign_to_block(blk.clone()).is_err() {
+                return None;
             }
         }
 
