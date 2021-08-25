@@ -7,12 +7,17 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use std::thread::sleep;
+use std::time::{Duration, SystemTime};
 
 use anyhow::Result;
+
+const MAX_TIME: i64 = 10000;
 
 #[derive(Debug)]
 enum BufferMgrError {
     LockFailed(String),
+    BufferAbort,
 }
 
 impl std::error::Error for BufferMgrError {}
@@ -21,6 +26,9 @@ impl fmt::Display for BufferMgrError {
         match self {
             BufferMgrError::LockFailed(s) => {
                 write!(f, "lock failed function: {}", s)
+            }
+            BufferMgrError::BufferAbort => {
+                write!(f, "buffer abort")
             }
         }
     }
@@ -33,11 +41,6 @@ pub struct BufferMgr {
 }
 
 impl BufferMgr {
-    #[inline]
-    pub fn max_time() -> i32 {
-        10000 // 10 sec
-    }
-
     pub fn new(fm: Rc<RefCell<FileMgr>>, lm: Rc<RefCell<LogMgr>>, numbuffs: usize) -> BufferMgr {
         let bufferpool: Vec<Buffer> = (0..numbuffs)
             .map(|_| Buffer::new(Rc::clone(&fm), Rc::clone(&lm)))
@@ -65,7 +68,7 @@ impl BufferMgr {
     }
 
     pub fn unpin(&mut self, buff: &mut Buffer) -> Result<()> {
-        if let Ok(_) = self.l.lock() {
+        if self.l.lock().is_ok() {
             buff.unpin();
 
             if !buff.is_pinned() {
@@ -80,13 +83,21 @@ impl BufferMgr {
         ))))
     }
 
-    // TODO: 燃え尽きた、あとで
-    pub fn pin(&mut self, blk: &BlockId) -> Result<()> {
-        if let Ok(_) = self.l.lock() {}
+    pub fn pin(&mut self, blk: &BlockId) -> Result<usize> {
+        if self.l.lock().is_ok() {
+            let timestamp = SystemTime::now();
 
-        while let Some(buff_index) = self.try_to_pin(blk) {}
+            while !waiting_too_long(timestamp) {
+                if let Some(b) = self.try_to_pin(blk) {
+                    return Ok(b);
+                }
+                sleep(Duration::new(MAX_TIME as u64 / 1000 - 2, 0));
+            }
 
-        Ok(())
+            return Err(From::from(BufferMgrError::BufferAbort));
+        }
+
+        Err(From::from(BufferMgrError::BufferAbort))
     }
 
     pub fn try_to_pin(&mut self, blk: &BlockId) -> Option<usize> {
@@ -133,4 +144,11 @@ impl BufferMgr {
 
         None
     }
+}
+
+fn waiting_too_long(starttime: SystemTime) -> bool {
+    let now = SystemTime::now();
+    let diff = now.duration_since(starttime).unwrap();
+
+    diff.as_millis() as i64 > MAX_TIME // 10 secs
 }
