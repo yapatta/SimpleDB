@@ -75,9 +75,13 @@ impl Buffer {
 
     // associate the buffer with the specific block, reading its content from disk
     pub fn assign_to_block(&mut self, b: BlockId) -> Result<()> {
+        println!("before flush");
         self.flush()?;
+        println!("before read");
         self.fm.borrow_mut().read(&b, &mut self.contents)?;
+        println!("after read");
         self.blk = Some(b);
+        self.pins = 0;
 
         Ok(())
     }

@@ -53,6 +53,10 @@ impl BufferMgr {
         }
     }
 
+    pub fn available(&self) -> usize {
+        self.num_available
+    }
+
     pub fn flush_all(&mut self, txnum: i32) -> Result<()> {
         if self.l.lock().is_ok() {
             for i in 0..self.bufferpool.len() {
@@ -67,11 +71,11 @@ impl BufferMgr {
         )))
     }
 
-    pub fn unpin(&mut self, buff: &mut Buffer) -> Result<()> {
+    pub fn unpin(&mut self, buff_index: usize) -> Result<()> {
         if self.l.lock().is_ok() {
-            buff.unpin();
+            self.bufferpool[buff_index].unpin();
 
-            if !buff.is_pinned() {
+            if !self.bufferpool[buff_index].is_pinned() {
                 self.num_available += 1;
             }
 
@@ -91,7 +95,7 @@ impl BufferMgr {
                 if let Some(b) = self.try_to_pin(blk) {
                     return Ok(b);
                 }
-                sleep(Duration::new(MAX_TIME as u64 / 1000 - 2, 0));
+                sleep(Duration::new(2, 0));
             }
 
             return Err(From::from(BufferMgrError::BufferAbort));

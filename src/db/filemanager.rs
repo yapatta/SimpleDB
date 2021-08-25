@@ -73,12 +73,14 @@ impl FileMgr {
         self.configure_file_table(blk.filename())?;
 
         if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-            f.lock_shared()?;
+            f.lock_exclusive()?;
 
             let offset = blk.number() * self.blocksize;
+            println!("offset: {}", offset);
             f.seek(SeekFrom::Start(offset))?;
 
-            f.read_exact(p.contents())?;
+            // ERROR: bytes are not added because of
+            f.read_exact(p.contents()).unwrap();
 
             f.unlock()?;
 
