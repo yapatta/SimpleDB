@@ -70,7 +70,6 @@ impl FileMgr {
     }
 
     // bufの内容をpに書き込み
-    // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn read(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
         if self.l.lock().is_ok() {
             self.configure_file_table(blk.filename())?;
@@ -99,7 +98,6 @@ impl FileMgr {
     }
 
     // pの内容をbufに書き込み
-    // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn write(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
         if self.l.lock().is_ok() {
             self.configure_file_table(blk.filename())?;
