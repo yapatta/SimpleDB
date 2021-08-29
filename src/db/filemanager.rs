@@ -1,7 +1,6 @@
 use super::blockid::BlockId;
 use super::page::Page;
 use anyhow::Result;
-use fs2::FileExt;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -10,11 +9,12 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 enum FileMgrError {
     ParseFailed,
-    InternalError,
+    FileAccessFailed(String),
 }
 
 impl std::error::Error for FileMgrError {}
@@ -22,7 +22,9 @@ impl fmt::Display for FileMgrError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             FileMgrError::ParseFailed => write!(f, "parse failed"),
-            FileMgrError::InternalError => write!(f, "internal errror"),
+            FileMgrError::FileAccessFailed(filename) => {
+                write!(f, "file access failed: {}", filename)
+            }
         }
     }
 }
@@ -32,6 +34,7 @@ pub struct FileMgr {
     blocksize: u64,
     is_new: bool,
     open_files: HashMap<String, File>,
+    l: Arc<Mutex<()>>,
 }
 
 impl FileMgr {
@@ -62,72 +65,76 @@ impl FileMgr {
             blocksize,
             is_new,
             open_files: HashMap::new(),
+            l: Arc::new(Mutex::default()),
         })
     }
 
     // bufの内容をpに書き込み
     // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn read(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        self.configure_file_table(blk.filename())?;
+        if self.l.lock().is_ok() {
+            self.configure_file_table(blk.filename())?;
 
-        if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-            f.lock_exclusive()?;
+            if let Some(f) = self.open_files.get_mut(&blk.filename()) {
+                let offset = blk.number() * self.blocksize;
+                f.seek(SeekFrom::Start(offset))?;
 
-            let offset = blk.number() * self.blocksize;
-            f.seek(SeekFrom::Start(offset))?;
+                // ERROR: bytes are not added because of ...
+                let read_len = f.read(p.contents())?;
 
-            f.read_exact(p.contents())?;
+                if read_len < p.contents().len() {
+                    let tmp = vec![0; p.contents().len() - read_len];
+                    f.write_all(&tmp)?;
 
-            f.unlock()?;
+                    for i in read_len..p.contents().len() {
+                        p.contents()[i] = 0;
+                    }
+                }
 
-            return Ok(());
+                return Ok(());
+            }
         }
 
-        Err(From::from(FileMgrError::InternalError))
+        Err(From::from(FileMgrError::FileAccessFailed(blk.filename())))
     }
 
     // pの内容をbufに書き込み
     // fileをLockしたらもれなく他のスレッドが進めないからpのロックはいらない？
     pub fn write(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        self.configure_file_table(blk.filename())?;
+        if self.l.lock().is_ok() {
+            self.configure_file_table(blk.filename())?;
 
-        if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-            f.lock_exclusive()?;
+            if let Some(f) = self.open_files.get_mut(&blk.filename()) {
+                let offset = blk.number() * self.blocksize;
+                f.seek(SeekFrom::Start(offset))?;
+                f.write_all(p.contents())?;
 
-            let offset = blk.number() * self.blocksize;
-            f.seek(SeekFrom::Start(offset))?;
-            f.write_all(p.contents())?;
-
-            f.unlock()?;
-
-            return Ok(());
+                return Ok(());
+            }
         }
 
-        Err(From::from(FileMgrError::InternalError))
+        Err(From::from(FileMgrError::FileAccessFailed(blk.filename())))
     }
 
     // seek to the end of the file and write an empty array of bytes to it
     pub fn append(&mut self, filename: String) -> anyhow::Result<BlockId> {
-        // FIX: needing O(|S|), find out more efficient solution
-        let newblknum = self.length(filename.clone())?;
-        let blk = BlockId::new(&filename, newblknum);
+        if self.l.lock().is_ok() {
+            let newblknum = self.length(filename.clone())?;
+            let blk = BlockId::new(&filename, newblknum);
 
-        let b: Vec<u8> = vec![0; self.blocksize as usize];
+            let b: Vec<u8> = vec![0; self.blocksize as usize];
 
-        self.configure_file_table(blk.filename())?;
+            self.configure_file_table(blk.filename())?;
 
-        if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-            f.lock_exclusive()?;
+            if let Some(f) = self.open_files.get_mut(&blk.filename()) {
+                f.seek(SeekFrom::Start(blk.number() * self.blocksize))?;
+                f.write_all(&b)?;
 
-            f.seek(SeekFrom::Start(blk.number() * self.blocksize))?;
-            f.write_all(&b)?;
-
-            f.unlock()?;
-
-            return Ok(blk);
+                return Ok(blk);
+            }
         }
 
-        Err(From::from(FileMgrError::InternalError))
+        Err(From::from(FileMgrError::FileAccessFailed(filename)))
     }
 
     pub fn length(&mut self, filename: String) -> Result<u64> {

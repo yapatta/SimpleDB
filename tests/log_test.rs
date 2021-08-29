@@ -4,14 +4,14 @@ use simple_db::page::Page;
 
 use std::cell::RefCell;
 use std::mem;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 
 #[test]
 fn log_test() {
     let fm = FileMgr::new("./logtests", 400).unwrap();
-    let mut lm = LogMgr::new(Rc::new(RefCell::new(fm)), String::from("logfile")).unwrap();
+    let mut lm = LogMgr::new(Arc::new(RefCell::new(fm)), String::from("logfile")).unwrap();
     create_records(&mut lm, 1, 35).unwrap();
     print_log_record(&mut lm, String::from("The log file now has these records:")).unwrap();
 }
