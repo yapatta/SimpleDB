@@ -6,10 +6,10 @@ use super::page::Page;
 use anyhow::Result;
 use std::cell::RefCell;
 use std::mem;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct LogMgr {
-    fm: Rc<RefCell<FileMgr>>,
+    fm: Arc<RefCell<FileMgr>>,
     logfile: String,
     logpage: Page,
     currentblk: BlockId,
@@ -18,7 +18,7 @@ pub struct LogMgr {
 }
 
 impl LogMgr {
-    pub fn new(fm: Rc<RefCell<FileMgr>>, logfile: String) -> Result<LogMgr> {
+    pub fn new(fm: Arc<RefCell<FileMgr>>, logfile: String) -> Result<LogMgr> {
         let mut logpage = Page::new_from_size(fm.borrow().blocksize() as usize);
         let logsize = fm.borrow_mut().length(logfile.clone())?;
 
@@ -79,7 +79,7 @@ impl LogMgr {
 
     pub fn iterator(&mut self) -> Result<LogIterator> {
         self.flush()?;
-        let iter = LogIterator::new(Rc::clone(&self.fm), self.currentblk.clone())?;
+        let iter = LogIterator::new(Arc::clone(&self.fm), self.currentblk.clone())?;
 
         Ok(iter)
     }

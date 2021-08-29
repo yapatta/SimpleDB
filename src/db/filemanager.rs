@@ -84,7 +84,7 @@ impl FileMgr {
 
                 if read_len < p.contents().len() {
                     let tmp = vec![0; p.contents().len() - read_len];
-                    f.write(&tmp)?;
+                    f.write_all(&tmp)?;
 
                     for i in read_len..p.contents().len() {
                         p.contents()[i] = 0;

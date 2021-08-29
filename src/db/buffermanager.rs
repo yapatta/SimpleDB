@@ -5,7 +5,6 @@ use super::logmanager::LogMgr;
 
 use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
@@ -41,9 +40,9 @@ pub struct BufferMgr {
 }
 
 impl BufferMgr {
-    pub fn new(fm: Rc<RefCell<FileMgr>>, lm: Rc<RefCell<LogMgr>>, numbuffs: usize) -> BufferMgr {
+    pub fn new(fm: Arc<RefCell<FileMgr>>, lm: Arc<RefCell<LogMgr>>, numbuffs: usize) -> BufferMgr {
         let bufferpool: Vec<Buffer> = (0..numbuffs)
-            .map(|_| Buffer::new(Rc::clone(&fm), Rc::clone(&lm)))
+            .map(|_| Buffer::new(Arc::clone(&fm), Arc::clone(&lm)))
             .collect();
 
         BufferMgr {

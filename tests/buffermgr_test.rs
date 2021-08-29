@@ -4,15 +4,15 @@ use simple_db::filemanager::FileMgr;
 use simple_db::logmanager::LogMgr;
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[test]
 fn buffermgr_test() {
     let fm = FileMgr::new("./buffertests", 400).unwrap();
-    let fmrc = Rc::new(RefCell::new(fm));
-    let fmrc2 = Rc::clone(&fmrc);
+    let fmrc = Arc::new(RefCell::new(fm));
+    let fmrc2 = Arc::clone(&fmrc);
     let lm = LogMgr::new(fmrc, String::from("bufferfile")).unwrap();
-    let mut bm = BufferMgr::new(fmrc2, Rc::new(RefCell::new(lm)), 3);
+    let mut bm = BufferMgr::new(fmrc2, Arc::new(RefCell::new(lm)), 3);
 
     println!("Available buffers: {}", bm.available());
 

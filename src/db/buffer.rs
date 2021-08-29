@@ -5,7 +5,7 @@ use super::page::Page;
 
 use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Result;
 
@@ -26,8 +26,8 @@ impl fmt::Display for BufferError {
 }
 
 pub struct Buffer {
-    fm: Rc<RefCell<FileMgr>>,
-    lm: Rc<RefCell<LogMgr>>,
+    fm: Arc<RefCell<FileMgr>>,
+    lm: Arc<RefCell<LogMgr>>,
     contents: Page,
     blk: Option<BlockId>, // reference to the block assigned to its page
     pins: u64,            // the number of times the page is pinned
@@ -36,7 +36,7 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn new(fm: Rc<RefCell<FileMgr>>, lm: Rc<RefCell<LogMgr>>) -> Buffer {
+    pub fn new(fm: Arc<RefCell<FileMgr>>, lm: Arc<RefCell<LogMgr>>) -> Buffer {
         let blksize = fm.borrow().blocksize() as usize;
 
         Buffer {

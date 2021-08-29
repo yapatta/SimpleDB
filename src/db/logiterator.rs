@@ -5,10 +5,10 @@ use super::page::Page;
 use anyhow::Result;
 use std::cell::RefCell;
 use std::mem;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct LogIterator {
-    fm: Rc<RefCell<FileMgr>>,
+    fm: Arc<RefCell<FileMgr>>,
     blk: BlockId,
     p: Page,
     currentpos: u64,
@@ -16,7 +16,7 @@ pub struct LogIterator {
 }
 
 impl LogIterator {
-    pub fn new(fm: Rc<RefCell<FileMgr>>, blk: BlockId) -> Result<LogIterator> {
+    pub fn new(fm: Arc<RefCell<FileMgr>>, blk: BlockId) -> Result<LogIterator> {
         let mut p = Page::new_from_size(fm.borrow().blocksize() as usize);
 
         fm.borrow_mut().read(&blk, &mut p)?;
