@@ -80,7 +80,16 @@ impl FileMgr {
                 f.seek(SeekFrom::Start(offset))?;
 
                 // ERROR: bytes are not added because of ...
-                f.read_exact(p.contents())?;
+                let read_len = f.read(p.contents())?;
+
+                if read_len < p.contents().len() {
+                    let tmp = vec![0; p.contents().len() - read_len];
+                    f.write(&tmp)?;
+
+                    for i in read_len..p.contents().len() {
+                        p.contents()[i] = 0;
+                    }
+                }
 
                 return Ok(());
             }

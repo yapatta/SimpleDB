@@ -57,6 +57,10 @@ impl BufferMgr {
         self.num_available
     }
 
+    pub fn pool(&self) -> &Vec<Buffer> {
+        &self.bufferpool
+    }
+
     pub fn flush_all(&mut self, txnum: i32) -> Result<()> {
         if self.l.lock().is_ok() {
             for i in 0..self.bufferpool.len() {
