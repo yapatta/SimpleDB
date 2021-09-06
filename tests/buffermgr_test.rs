@@ -16,29 +16,28 @@ fn buffermgr_test() {
 
     println!("Available buffers: {}", bm.available());
 
-    // 0 . .
-    let b0 = BlockId::new("bufferfile", 0);
-    let _n0 = bm.pin(&b0).unwrap();
+    // pos: 0, buffer: 0
+    let n0 = bm.pin(&BlockId::new("bufferfile", 0)).unwrap();
 
-    // 0 1 .
-    let b1 = BlockId::new("bufferfile", 1);
-    let n1 = bm.pin(&b1).unwrap();
+    // pos: 1, buffer: 1
+    let n1 = bm.pin(&BlockId::new("bufferfile", 1)).unwrap();
 
-    // 0 1 2
-    let b2 = BlockId::new("bufferfile", 2);
-    let n2 = bm.pin(&b2).unwrap();
+    // pos: 2, buffer: 2
+    let n2 = bm.pin(&BlockId::new("bufferfile", 2)).unwrap();
 
-    // 0 . 2
-    bm.unpin(n1).unwrap();
+    // pos: 1, buffer: none
+    bm.unpin(Arc::clone(&n1)).unwrap();
 
-    // 0 . 2
-    let b3 = BlockId::new("bufferfile", 0);
-    let _n3 = bm.pin(&b3).unwrap();
+    // pos: 0, buffer: 0
+    let _n3 = bm.pin(&BlockId::new("bufferfile", 0)).unwrap();
 
-    // 0 1 2
-    let b4 = BlockId::new("bufferfile", 1);
-    let _n4 = bm.pin(&b4).unwrap();
+    // pos: 1, buffer: 1
+    let n4 = bm.pin(&BlockId::new("bufferfile", 1)).unwrap();
 
+    // pos: buffer
+    //   0:      0
+    //   1:      1
+    //   2:      2
     println!("Available buffers: {}", bm.available());
     println!("Attempting to pin block 3...");
     match bm.pin(&BlockId::new("bufferfile", 3)) {
@@ -48,15 +47,18 @@ fn buffermgr_test() {
         }
     };
 
-    // 0 1 .
+    // pos: 2, buffer: none
     bm.unpin(n2).unwrap();
 
-    // 0 1 3
-    let _n5 = bm.pin(&BlockId::new("bufferfile", 3)).unwrap();
+    // pos: buffer
+    //   0:      0
+    //   1:      1
+    //   2:      3
+    let n5 = bm.pin(&BlockId::new("bufferfile", 3)).unwrap();
 
     println!("Final Buffer Allocation");
 
-    assert_eq!(bm.pool()[0].block().unwrap().number(), 0);
-    assert_eq!(bm.pool()[1].block().unwrap().number(), 1);
-    assert_eq!(bm.pool()[2].block().unwrap().number(), 3);
+    assert_eq!(n0.borrow().block().unwrap().number(), 0);
+    assert_eq!(n4.borrow().block().unwrap().number(), 1);
+    assert_eq!(n5.borrow().block().unwrap().number(), 3);
 }

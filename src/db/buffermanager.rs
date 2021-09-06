@@ -34,15 +34,15 @@ impl fmt::Display for BufferMgrError {
 }
 
 pub struct BufferMgr {
-    bufferpool: Vec<Buffer>,
+    bufferpool: Vec<Arc<RefCell<Buffer>>>,
     num_available: usize,
     l: Arc<Mutex<()>>,
 }
 
 impl BufferMgr {
     pub fn new(fm: Arc<RefCell<FileMgr>>, lm: Arc<RefCell<LogMgr>>, numbuffs: usize) -> BufferMgr {
-        let bufferpool: Vec<Buffer> = (0..numbuffs)
-            .map(|_| Buffer::new(Arc::clone(&fm), Arc::clone(&lm)))
+        let bufferpool: Vec<Arc<RefCell<Buffer>>> = (0..numbuffs)
+            .map(|_| Arc::new(RefCell::new(Buffer::new(Arc::clone(&fm), Arc::clone(&lm)))))
             .collect();
 
         BufferMgr {
@@ -56,15 +56,15 @@ impl BufferMgr {
         self.num_available
     }
 
-    pub fn pool(&self) -> &Vec<Buffer> {
+    pub fn pool(&self) -> &Vec<Arc<RefCell<Buffer>>> {
         &self.bufferpool
     }
 
     pub fn flush_all(&mut self, txnum: i32) -> Result<()> {
         if self.l.lock().is_ok() {
             for i in 0..self.bufferpool.len() {
-                if self.bufferpool[i].modifying_tx() == txnum {
-                    self.bufferpool[i].flush()?;
+                if self.bufferpool[i].borrow().modifying_tx() == txnum {
+                    self.bufferpool[i].borrow_mut().flush()?;
                 }
             }
         }
@@ -74,11 +74,11 @@ impl BufferMgr {
         )))
     }
 
-    pub fn unpin(&mut self, buff_index: usize) -> Result<()> {
+    pub fn unpin(&mut self, buff: Arc<RefCell<Buffer>>) -> Result<()> {
         if self.l.lock().is_ok() {
-            self.bufferpool[buff_index].unpin();
+            buff.borrow_mut().unpin();
 
-            if !self.bufferpool[buff_index].is_pinned() {
+            if !buff.borrow().is_pinned() {
                 self.num_available += 1;
             }
 
@@ -90,15 +90,15 @@ impl BufferMgr {
         ))))
     }
 
-    pub fn pin(&mut self, blk: &BlockId) -> Result<usize> {
+    pub fn pin(&mut self, blk: &BlockId) -> Result<Arc<RefCell<Buffer>>> {
         if self.l.lock().is_ok() {
             let timestamp = SystemTime::now();
 
             while !waiting_too_long(timestamp) {
                 if let Some(b) = self.try_to_pin(blk) {
-                    return Ok(b);
+                    return Ok(Arc::clone(&self.bufferpool[b]));
                 }
-                sleep(Duration::new(2, 0));
+                sleep(Duration::new(1, 0));
             }
 
             return Err(From::from(BufferMgrError::BufferAbort));
@@ -114,16 +114,24 @@ impl BufferMgr {
         } else if let Some(i) = self.choose_unpinned_buffer() {
             buff_index = i as i32;
 
-            if self.bufferpool[i].assign_to_block(blk.clone()).is_err() {
+            if self.bufferpool[i]
+                .borrow_mut()
+                .assign_to_block(blk.clone())
+                .is_err()
+            {
                 return None;
             }
         }
 
         if buff_index >= 0 {
-            if !self.bufferpool[buff_index as usize].is_pinned() {
+            if !self.bufferpool[buff_index as usize]
+                .borrow_mut()
+                .is_pinned()
+            {
                 self.num_available -= 1;
             }
-            self.bufferpool[buff_index as usize].pin();
+
+            self.bufferpool[buff_index as usize].borrow_mut().pin();
 
             return Some(buff_index as usize);
         }
@@ -133,7 +141,7 @@ impl BufferMgr {
 
     pub fn find_existing_buffer(&mut self, blk: &BlockId) -> Option<usize> {
         for i in 0..self.bufferpool.len() {
-            if let Some(b) = self.bufferpool[i].block() {
+            if let Some(b) = self.bufferpool[i].borrow().block() {
                 if *b == *blk {
                     return Some(i);
                 }
@@ -145,7 +153,7 @@ impl BufferMgr {
 
     pub fn choose_unpinned_buffer(&mut self) -> Option<usize> {
         for i in 0..self.bufferpool.len() {
-            if !self.bufferpool[i].is_pinned() {
+            if !self.bufferpool[i].borrow().is_pinned() {
                 return Some(i);
             }
         }
