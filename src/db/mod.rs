@@ -5,5 +5,7 @@ pub mod constants;
 pub mod filemanager;
 pub mod logiterator;
 pub mod logmanager;
+pub mod logrecord;
 pub mod page;
+pub mod setstringrecord;
 pub mod simpledb;
