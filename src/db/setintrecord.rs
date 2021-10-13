@@ -1,6 +1,6 @@
 use super::blockid::BlockId;
 use super::logmanager::LogMgr;
-use super::logrecord::SetString;
+use super::logrecord::SetInt;
 use super::page::Page;
 
 use std::cell::RefCell;
@@ -10,30 +10,30 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-pub struct SetStringRecord {
+pub struct SetIntRecord {
     txnum: i32,
     offset: i32,
-    val: String,
+    val: i32,
     blk: BlockId,
 }
 
-impl fmt::Display for SetStringRecord {
+impl fmt::Display for SetIntRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "<SETSTRING {} {} {} {}>",
+            "<SETINT {} {} {} {}>",
             self.txnum, self.blk, self.offset, self.val
         )
     }
 }
 
 /**
- *            tpos   fpos            bpos     opos     vpos
- * | SetString | txnum |   filename   | blknum | offset |      val     |
- *      int       int    int + stirng    int      int     int + string
+ *          tpos   fpos            bpos     opos    vpos
+ * | SetInt | txnum |   filename   | blknum | offset | val |
+ *    int       int   int + stirng    int　　　int     int
  **/
-impl SetStringRecord {
-    pub fn new(p: Page) -> Result<SetStringRecord> {
+impl SetIntRecord {
+    pub fn new(p: Page) -> Result<SetIntRecord> {
         let tpos = mem::size_of::<i32>();
         let txnum = p.get_int(tpos)?;
         let fpos = tpos + mem::size_of::<i32>();
@@ -44,9 +44,9 @@ impl SetStringRecord {
         let opos = bpos + mem::size_of::<i32>();
         let offset = p.get_int(opos)?;
         let vpos = opos + mem::size_of::<i32>();
-        let val = p.get_string(vpos)?;
+        let val = p.get_int(vpos)?;
 
-        Ok(SetStringRecord {
+        Ok(SetIntRecord {
             txnum,
             offset,
             val,
@@ -55,7 +55,7 @@ impl SetStringRecord {
     }
 
     pub fn op(&self) -> i32 {
-        SetString
+        SetInt
     }
 
     pub fn tx_number(&self) -> i32 {
@@ -67,22 +67,22 @@ impl SetStringRecord {
         txnum: i32,
         blk: BlockId,
         offset: i32,
-        val: String,
+        val: i32,
     ) -> Result<u64> {
         let tpos = mem::size_of::<i32>();
         let fpos = tpos + mem::size_of::<i32>();
         let bpos = fpos + Page::max_length(blk.filename().len());
         let opos = bpos + mem::size_of::<i32>();
         let vpos = opos + mem::size_of::<i32>();
-        let reclen = vpos + Page::max_length(val.len());
+        let reclen = vpos + mem::size_of::<i32>();
 
         let mut p = Page::new_from_size(reclen as usize);
-        p.set_int(0, SetString)?;
+        p.set_int(0, SetInt)?;
         p.set_int(tpos, txnum)?;
         p.set_string(fpos, blk.filename())?;
         p.set_int(bpos, blk.number() as i32)?;
         p.set_int(opos, offset)?;
-        p.set_string(vpos, val)?;
+        p.set_int(vpos, val)?;
 
         lm.borrow_mut().append(p.contents())
     }

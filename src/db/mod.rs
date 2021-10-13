@@ -7,5 +7,6 @@ pub mod logiterator;
 pub mod logmanager;
 pub mod logrecord;
 pub mod page;
+pub mod setintrecord;
 pub mod setstringrecord;
 pub mod simpledb;
