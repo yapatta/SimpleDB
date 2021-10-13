@@ -1,6 +1,6 @@
 use super::blockid::BlockId;
 use super::logmanager::LogMgr;
-use super::logrecord::SetString;
+use super::logrecord::SETSTRING;
 use super::page::Page;
 
 use std::cell::RefCell;
@@ -55,7 +55,7 @@ impl SetStringRecord {
     }
 
     pub fn op(&self) -> i32 {
-        SetString
+        SETSTRING
     }
 
     pub fn tx_number(&self) -> i32 {
@@ -77,7 +77,7 @@ impl SetStringRecord {
         let reclen = vpos + Page::max_length(val.len());
 
         let mut p = Page::new_from_size(reclen as usize);
-        p.set_int(0, SetString)?;
+        p.set_int(0, SETSTRING)?;
         p.set_int(tpos, txnum)?;
         p.set_string(fpos, blk.filename())?;
         p.set_int(bpos, blk.number() as i32)?;
