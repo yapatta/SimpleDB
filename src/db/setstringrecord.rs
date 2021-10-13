@@ -33,7 +33,7 @@ impl fmt::Display for SetStringRecord {
  *      int       int    int + stirng    int      int     int + string
  **/
 impl SetStringRecord {
-    pub fn new(p: Page) -> Result<SetStringRecord> {
+    pub fn new(p: &Page) -> Result<SetStringRecord> {
         let tpos = mem::size_of::<i32>();
         let txnum = p.get_int(tpos)?;
         let fpos = tpos + mem::size_of::<i32>();

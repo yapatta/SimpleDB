@@ -33,7 +33,7 @@ impl fmt::Display for SetIntRecord {
  *    int       int   int + stirng    int　　　int     int
  **/
 impl SetIntRecord {
-    pub fn new(p: Page) -> Result<SetIntRecord> {
+    pub fn new(p: &Page) -> Result<SetIntRecord> {
         let tpos = mem::size_of::<i32>();
         let txnum = p.get_int(tpos)?;
         let fpos = tpos + mem::size_of::<i32>();
