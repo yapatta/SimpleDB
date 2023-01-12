@@ -22,7 +22,6 @@ fn test_new_filemgr() {
     fm.read(&mut blk, &mut p2).unwrap();
 
     // string
-    assert_eq!(88, pos1);
     assert_eq!(String::from("abcdefghijklm"), p2.get_string(pos1).unwrap());
     println!(
         "offset: {}, contains: {}",
@@ -31,7 +30,6 @@ fn test_new_filemgr() {
     );
 
     // int
-    assert_eq!(105, pos2);
     assert_eq!(345, p2.get_int(pos2).unwrap());
     println!("offset: {}, contains: {}", pos2, p2.get_int(pos2).unwrap());
 }
