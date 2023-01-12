@@ -9,10 +9,9 @@ fn test_new_filemgr() {
 
     let mut p1 = Page::new_from_size(fm.blocksize() as usize);
     let pos1 = 88;
-    p1.set_string(pos1, "abcdefghijklm".to_string()).unwrap();
-    let size = Page::max_length("abcdefghijklm".len());
+    p1.set_string(pos1, "abcdefghijklm").unwrap();
 
-    let pos2 = pos1 + size;
+    let pos2 = pos1 + Page::max_length("abcdefghijklm".len());
     p1.set_int(pos2, 345).unwrap();
 
     // println!("{}", p1.contents_str());
@@ -36,3 +35,6 @@ fn test_new_filemgr() {
     assert_eq!(345, p2.get_int(pos2).unwrap());
     println!("offset: {}, contains: {}", pos2, p2.get_int(pos2).unwrap());
 }
+
+#[test]
+fn test_mutex() {}

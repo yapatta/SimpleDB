@@ -90,8 +90,8 @@ impl Page {
         Ok(s)
     }
 
-    pub fn set_string(&mut self, offset: usize, s: String) -> Result<usize> {
-        self.set_bytes(offset, s.as_bytes())
+    pub fn set_string(&mut self, offset: usize, s: impl Into<String>) -> Result<usize> {
+        self.set_bytes(offset, s.into().as_bytes())
     }
 
     pub fn max_length(strlen: usize) -> usize {

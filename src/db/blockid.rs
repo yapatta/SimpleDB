@@ -8,15 +8,15 @@ pub struct BlockId {
 }
 
 impl BlockId {
-    pub fn new(filename: &str, blknum: u64) -> BlockId {
+    pub fn new(filename: impl Into<String>, blknum: u64) -> BlockId {
         BlockId {
-            filename: filename.to_string(),
+            filename: filename.into(),
             blknum,
         }
     }
 
-    pub fn filename(&self) -> String {
-        self.filename.clone()
+    pub fn filename(&self) -> &str {
+        &self.filename
     }
 
     pub fn number(&self) -> u64 {

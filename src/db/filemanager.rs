@@ -69,85 +69,86 @@ impl FileMgr {
         })
     }
 
-    // bufの内容をpに書き込み
+    // write the content of buf into p
     pub fn read(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
         if self.l.lock().is_ok() {
-            self.configure_file_table(blk.filename())?;
+            let blocksize = self.blocksize;
+            let f = self.configure_file_table(blk.filename())?;
 
-            if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-                let offset = blk.number() * self.blocksize;
-                f.seek(SeekFrom::Start(offset))?;
+            let offset = blk.number() * blocksize;
+            f.seek(SeekFrom::Start(offset))?;
 
-                // ERROR: bytes are not added because of ...
-                let read_len = f.read(p.contents())?;
+            // ERROR: bytes are not added because of ...
+            let read_len = f.read(p.contents())?;
 
-                if read_len < p.contents().len() {
-                    let tmp = vec![0; p.contents().len() - read_len];
-                    f.write_all(&tmp)?;
-
-                    for i in read_len..p.contents().len() {
-                        p.contents()[i] = 0;
-                    }
+            if read_len < p.contents().len() {
+                for i in read_len..p.contents().len() {
+                    p.contents()[i] = 0;
                 }
-
-                return Ok(());
             }
+
+            return Ok(());
         }
 
-        Err(From::from(FileMgrError::FileAccessFailed(blk.filename())))
+        Err(From::from(FileMgrError::FileAccessFailed(
+            blk.filename().into(),
+        )))
     }
 
-    // pの内容をbufに書き込み
+    // write all contents of p into the file refered in blk
     pub fn write(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
         if self.l.lock().is_ok() {
-            self.configure_file_table(blk.filename())?;
+            let blocksize = self.blocksize;
+            let f = self.configure_file_table(blk.filename())?;
+            let offset = blk.number() * blocksize;
+            f.seek(SeekFrom::Start(offset))?;
+            f.write_all(p.contents())?;
 
-            if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-                let offset = blk.number() * self.blocksize;
-                f.seek(SeekFrom::Start(offset))?;
-                f.write_all(p.contents())?;
-
-                return Ok(());
-            }
+            return Ok(());
         }
 
-        Err(From::from(FileMgrError::FileAccessFailed(blk.filename())))
+        Err(From::from(FileMgrError::FileAccessFailed(
+            blk.filename().into(),
+        )))
     }
 
     // seek to the end of the file and write an empty array of bytes to it
-    pub fn append(&mut self, filename: String) -> anyhow::Result<BlockId> {
+    pub fn append(&mut self, filename: impl Into<String>) -> anyhow::Result<BlockId> {
+        let filename = filename.into();
         if self.l.lock().is_ok() {
-            let newblknum = self.length(filename.clone())?;
+            let newblknum = self.length(&filename)?;
             let blk = BlockId::new(&filename, newblknum);
 
             let b: Vec<u8> = vec![0; self.blocksize as usize];
 
-            self.configure_file_table(blk.filename())?;
+            let blocksize = self.blocksize;
+            let f = self.configure_file_table(blk.filename())?;
+            f.seek(SeekFrom::Start(blk.number() * blocksize))?;
+            f.write_all(&b)?;
 
-            if let Some(f) = self.open_files.get_mut(&blk.filename()) {
-                f.seek(SeekFrom::Start(blk.number() * self.blocksize))?;
-                f.write_all(&b)?;
-
-                return Ok(blk);
-            }
+            return Ok(blk);
         }
 
         Err(From::from(FileMgrError::FileAccessFailed(filename)))
     }
 
-    pub fn length(&mut self, filename: String) -> Result<u64> {
+    pub fn length(&mut self, filename: impl Into<String>) -> Result<u64> {
+        let filename = filename.into();
         let path = Path::new(&self.db_directory).join(&filename);
-        self.configure_file_table(filename)?;
         let md = fs::metadata(&path)?;
 
         // ceil
         Ok((md.len() + self.blocksize - 1) / self.blocksize)
     }
 
-    pub fn configure_file_table(&mut self, filename: String) -> anyhow::Result<()> {
+    pub fn configure_file_table(
+        &mut self,
+        filename: impl Into<String>,
+    ) -> anyhow::Result<&mut std::fs::File> {
+        let filename = filename.into();
         let path = Path::new(&self.db_directory).join(&filename);
 
-        self.open_files.entry(filename).or_insert(
+        let created_file = self.open_files.entry(filename).or_insert(
             OpenOptions::new()
                 .read(true)
                 .write(true)
@@ -155,7 +156,7 @@ impl FileMgr {
                 .open(&path)?,
         );
 
-        Ok(())
+        Ok(created_file)
     }
 
     pub fn blocksize(&self) -> u64 {

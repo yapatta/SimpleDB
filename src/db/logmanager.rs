@@ -25,7 +25,7 @@ impl LogMgr {
         let logmgr;
 
         if logsize == 0 {
-            let blk = fm.borrow_mut().append(logfile.clone())?;
+            let blk = fm.borrow_mut().append(&logfile)?;
             logpage.set_int(0, fm.borrow().blocksize() as i32)?;
             fm.borrow_mut().write(&blk, &mut logpage)?;
 
@@ -102,7 +102,7 @@ impl LogMgr {
     }
 
     fn append_newblk(&mut self) -> Result<BlockId> {
-        let blk = self.fm.borrow_mut().append(self.logfile.clone())?;
+        let blk = self.fm.borrow_mut().append(&self.logfile)?;
         self.logpage
             .set_int(0, self.fm.borrow().blocksize() as i32)?;
         self.fm.borrow_mut().write(&blk, &mut self.logpage)?;

@@ -46,7 +46,7 @@ impl Iterator for LogIterator {
         }
 
         if self.currentpos == self.fm.borrow().blocksize() {
-            self.blk = BlockId::new(&self.blk.filename(), self.blk.number() - 1);
+            self.blk = BlockId::new(self.blk.filename(), self.blk.number() - 1);
 
             if self.fm.borrow_mut().read(&self.blk, &mut self.p).is_err() {
                 return None;
