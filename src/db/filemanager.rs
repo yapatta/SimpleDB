@@ -178,4 +178,8 @@ impl FileMgr {
     pub fn is_new(&self) -> bool {
         self.is_new
     }
+
+    pub fn open_files(&self) -> &HashMap<String, File> {
+        &self.open_files
+    }
 }

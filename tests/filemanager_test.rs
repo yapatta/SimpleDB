@@ -2,11 +2,12 @@ use simple_db::blockid::BlockId;
 use simple_db::filemanager::FileMgr;
 use simple_db::page::Page;
 
+use itertools::izip;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[test]
-fn test_new_filemgr() {
+fn read_write() {
     let mut fm = FileMgr::new("./testdb", 400).unwrap();
     let blk = BlockId::new("testfile", 2);
 
@@ -36,8 +37,51 @@ fn test_new_filemgr() {
 }
 
 #[test]
-fn test_mutex() {
-    let fm = Arc::new(Mutex::new(FileMgr::new("./test_mutex", 400).unwrap()));
+fn keep_map_after_renewing() {
+    const POS: usize = 100;
+    const TEXT: &str = "Make America great again.";
+    const NUM: i32 = 500;
+
+    {
+        let mut fm = FileMgr::new("./keep_map_after_renewing", 400).unwrap();
+        let blk = BlockId::new("file1", 0);
+        let blk2 = BlockId::new("file2", 0);
+
+        let mut page = page_test_case(fm.blocksize(), POS, TEXT, NUM);
+
+        fm.write(&blk, &mut page).unwrap();
+        fm.write(&blk2, &mut page).unwrap();
+
+        for (k, v) in izip!(fm.open_files().keys(), fm.open_files().values()) {
+            println!("key: {:?}, value: {:?}", k, v);
+        }
+    }
+    {
+        let mut fm = FileMgr::new("./keep_map_after_renewing", 400).unwrap();
+        let blk = BlockId::new("file1", 0);
+        let blk2 = BlockId::new("file2", 0);
+
+        for (k, v) in izip!(fm.open_files().keys(), fm.open_files().values()) {
+            println!("key: {:?}, value: {:?}", k, v);
+        }
+        let mut p1 = Page::new_from_size(fm.blocksize() as usize);
+        let mut p2 = Page::new_from_size(fm.blocksize() as usize);
+
+        fm.read(&blk, &mut p1).unwrap();
+        fm.read(&blk2, &mut p2).unwrap();
+
+        println!("offset: {}, contains: {}", POS, p1.get_string(POS).unwrap());
+        assert_eq!(TEXT.to_string(), p1.get_string(POS).unwrap());
+        println!("offset: {}, contains: {}", POS, p2.get_string(POS).unwrap());
+        assert_eq!(TEXT.to_string(), p2.get_string(POS).unwrap());
+    }
+}
+
+#[test]
+fn multithread_read_write() {
+    let fm = Arc::new(Mutex::new(
+        FileMgr::new("./multithread_read_write", 400).unwrap(),
+    ));
     let blk = Arc::new(BlockId::new("mutexfile", 0));
     let mut threads = Vec::with_capacity(2);
 
