@@ -94,6 +94,10 @@ impl Page {
         self.set_bytes(offset, s.into().as_bytes())
     }
 
+    pub fn max_length_text(text: impl Into<String>) -> usize {
+        Page::max_length(text.into().len())
+    }
+
     pub fn max_length(strlen: usize) -> usize {
         mem::size_of::<i32>() + (strlen * mem::size_of::<u8>())
     }
