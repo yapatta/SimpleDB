@@ -29,6 +29,7 @@ impl fmt::Display for FileMgrError {
     }
 }
 
+// MEMO: Each File and HashMap should be read and written by only one thread every time
 pub struct FileMgr {
     db_directory: String,
     blocksize: u64,
@@ -73,6 +74,8 @@ impl FileMgr {
     pub fn read(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
         if self.l.lock().is_ok() {
             let blocksize = self.blocksize;
+
+            // File tableが更新されたとき、そのファイルのread, writeは同時に行わねばならない
             let f = self.configure_file_table(blk.filename())?;
 
             let offset = blk.number() * blocksize;
