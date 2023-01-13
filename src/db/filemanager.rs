@@ -8,8 +8,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::SeekFrom;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 enum FileMgrError {
@@ -35,7 +34,6 @@ pub struct FileMgr {
     blocksize: u64,
     is_new: bool,
     open_files: HashMap<String, File>,
-    l: Arc<Mutex<()>>,
 }
 
 impl FileMgr {
@@ -47,17 +45,25 @@ impl FileMgr {
             fs::create_dir_all(path)?;
         }
 
+        let mut open_files = HashMap::new();
+
         // remove any leftover temporary tables
         for entry in fs::read_dir(path)? {
             let entry = entry?;
             let epath = entry.path();
+
             let filename = match entry.file_name().into_string() {
                 Ok(s) => s,
                 Err(_) => return Err(From::from(FileMgrError::ParseFailed)),
             };
 
+            // TODO: what file exactly should be deleted to start FileManager??
             if filename.starts_with("temp") {
-                fs::remove_file(epath)?;
+                if let Err(_) = fs::remove_file(epath) {
+                    return Err(From::from(FileMgrError::FileAccessFailed(filename)));
+                }
+            } else {
+                FileMgr::_configure_file_table(&mut open_files, filename, epath)?;
             }
         }
 
@@ -65,74 +71,67 @@ impl FileMgr {
             db_directory: String::from(db_directory),
             blocksize,
             is_new,
-            open_files: HashMap::new(),
-            l: Arc::new(Mutex::default()),
+            open_files,
         })
     }
 
     // write the content of buf into p
     pub fn read(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        if self.l.lock().is_ok() {
-            let blocksize = self.blocksize;
+        let blocksize = self.blocksize;
 
-            // File tableが更新されたとき、そのファイルのread, writeは同時に行わねばならない
-            let f = self.configure_file_table(blk.filename())?;
+        // MEMO: when file table is updated, read-write of specified file in file table should be executed simultaneously
+        let f = self.configure_file_table(blk.filename())?;
 
-            let offset = blk.number() * blocksize;
-            f.seek(SeekFrom::Start(offset))?;
+        let offset = blk.number() * blocksize;
+        f.seek(SeekFrom::Start(offset))?;
 
-            // ERROR: bytes are not added because of ...
-            let read_len = f.read(p.contents())?;
+        // ERROR: bytes are not added because of ...
+        let read_len = f.read(p.contents())?;
 
-            if read_len < p.contents().len() {
-                for i in read_len..p.contents().len() {
-                    p.contents()[i] = 0;
-                }
+        // overwrite the free space on the page in case a full byte is not written to the page.
+        if read_len < p.contents().len() {
+            for i in read_len..p.contents().len() {
+                p.contents()[i] = 0;
             }
-
-            return Ok(());
         }
 
-        Err(From::from(FileMgrError::FileAccessFailed(
-            blk.filename().into(),
-        )))
+        Ok(())
+
+        //Err(From::from(FileMgrError::FileAccessFailed(
+        //    blk.filename().into(),
+        //)))
     }
 
     // write all contents of p into the file refered in blk
     pub fn write(&mut self, blk: &BlockId, p: &mut Page) -> anyhow::Result<()> {
-        if self.l.lock().is_ok() {
-            let blocksize = self.blocksize;
-            let f = self.configure_file_table(blk.filename())?;
-            let offset = blk.number() * blocksize;
-            f.seek(SeekFrom::Start(offset))?;
-            f.write_all(p.contents())?;
+        let blocksize = self.blocksize;
+        let f = self.configure_file_table(blk.filename())?;
+        let offset = blk.number() * blocksize;
+        f.seek(SeekFrom::Start(offset))?;
+        f.write_all(p.contents())?;
 
-            return Ok(());
-        }
+        Ok(())
 
-        Err(From::from(FileMgrError::FileAccessFailed(
-            blk.filename().into(),
-        )))
+        //Err(From::from(FileMgrError::FileAccessFailed(
+        //    blk.filename().into(),
+        //)))
     }
 
     // seek to the end of the file and write an empty array of bytes to it
     pub fn append(&mut self, filename: impl Into<String>) -> anyhow::Result<BlockId> {
         let filename = filename.into();
-        if self.l.lock().is_ok() {
-            let newblknum = self.length(&filename)?;
-            let blk = BlockId::new(&filename, newblknum);
+        let newblknum = self.length(&filename)?;
+        let blk = BlockId::new(&filename, newblknum);
 
-            let b: Vec<u8> = vec![0; self.blocksize as usize];
+        let b: Vec<u8> = vec![0; self.blocksize as usize];
 
-            let blocksize = self.blocksize;
-            let f = self.configure_file_table(blk.filename())?;
-            f.seek(SeekFrom::Start(blk.number() * blocksize))?;
-            f.write_all(&b)?;
+        let blocksize = self.blocksize;
+        let f = self.configure_file_table(blk.filename())?;
+        f.seek(SeekFrom::Start(blk.number() * blocksize))?;
+        f.write_all(&b)?;
 
-            return Ok(blk);
-        }
-
-        Err(From::from(FileMgrError::FileAccessFailed(filename)))
+        Ok(blk)
+        // Err(From::from(FileMgrError::FileAccessFailed(filename)))
     }
 
     pub fn length(&mut self, filename: impl Into<String>) -> Result<u64> {
@@ -144,14 +143,14 @@ impl FileMgr {
         Ok((md.len() + self.blocksize - 1) / self.blocksize)
     }
 
-    pub fn configure_file_table(
-        &mut self,
+    fn _configure_file_table(
+        file_table: &mut HashMap<String, File>,
         filename: impl Into<String>,
+        path: PathBuf,
     ) -> anyhow::Result<&mut std::fs::File> {
         let filename = filename.into();
-        let path = Path::new(&self.db_directory).join(&filename);
 
-        let created_file = self.open_files.entry(filename).or_insert(
+        let created_file = file_table.entry(filename).or_insert(
             OpenOptions::new()
                 .read(true)
                 .write(true)
@@ -160,6 +159,16 @@ impl FileMgr {
         );
 
         Ok(created_file)
+    }
+
+    pub fn configure_file_table(
+        &mut self,
+        filename: impl Into<String>,
+    ) -> anyhow::Result<&mut std::fs::File> {
+        let filename = filename.into();
+        let path = Path::new(&self.db_directory).join(&filename);
+
+        FileMgr::_configure_file_table(&mut self.open_files, &filename, path)
     }
 
     pub fn blocksize(&self) -> u64 {
